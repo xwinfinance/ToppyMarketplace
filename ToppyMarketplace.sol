@@ -203,6 +203,60 @@ library EnumerableSet {
     }
 }
 
+library SafeMath {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sub(a, b, "SafeMath: subtraction overflow");
+    }
+
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b <= a, errorMessage);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return div(a, b, "SafeMath: division by zero");
+    }
+
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b > 0, errorMessage);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return mod(a, b, "SafeMath: modulo by zero");
+    }
+
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+}
 
 library TransferHelper {
     function safeApprove(
@@ -246,7 +300,7 @@ contract Ownable {
   address public owner;
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-  constructor() public {
+  constructor() {
     owner = msg.sender;
   }
 
@@ -262,25 +316,27 @@ contract Ownable {
   }
 }
 
-contract SupportedPayment {
+contract ToppySupportPayment {
     function isEligibleToken(address _token) public view returns (bool){}
 }
 
-contract MasterSetting {
+contract ToppyMaster {
 
     function getCalcFeeInfo(address _creatorOwnerAddress, uint baseAmount) public view returns (uint creatorFee, uint platformFee, uint amountAfterFee) {}
     address public platformOwner;
-
+    uint public durationExtension;
 }
 
-contract EventHistory {
+contract ToppyEventHistory {
 
     function addEventHistory(
         bytes32 _key,
         address _from,
         address _to,
         uint _price,
-        string memory _eventType
+        string memory _eventType,
+        address _tokenPayment,
+        address _nftContract
         ) public {}
 }
 
@@ -384,7 +440,7 @@ contract ToppyMint {
 
 contract ToppyMarketPlace is Ownable{
 
-  //using SafeMath for uint;
+  using SafeMath for uint;
   using EnumerableSet for EnumerableSet.BytesSet;
 
     struct Offer {
@@ -422,12 +478,12 @@ contract ToppyMarketPlace is Ownable{
   }
   
   ToppyMint public toppyMint;
-  EventHistory public eventHistory;// = EventHistory(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
-  SupportedPayment public supportPayment;// = SupportedPayment(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
-  MasterSetting public masterSetting;// = MasterSetting(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
-                
+  ToppyEventHistory public eventHistory;// = EventHistory(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
+  ToppySupportPayment public supportPayment;// = SupportedPayment(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
+  ToppyMaster public masterSetting;// = MasterSetting(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
+  address public executor;       
   uint public listingId = 0; // max is 18446744073709551615
-
+  
   mapping (uint => Offer[]) public offersHistories;
   mapping (bytes32 => Offer) public highestOffer;
   mapping (bytes32 => Listing) internal tokenIdToListing;
@@ -435,11 +491,6 @@ contract ToppyMarketPlace is Ownable{
   mapping (address => EnumerableSet.BytesSet) private nftsForSaleByAddress;
   EnumerableSet.BytesSet private nftsForSaleIds;
     
-  // TODO: are arrays of structs even possible?
-  //       use this for making auctions discoverable
-  //mapping(address => Auction[]) internal ownerToAuction;
-  //mapping(uint256 => uint256) internal auctionIdToOwnerIndex;
-
     enum PriceType {
         ETHER,
         TOKEN
@@ -450,6 +501,10 @@ contract ToppyMarketPlace is Ownable{
         English
     }
 
+    modifier onlyExecutor() {
+        require(msg.sender == executor);
+        _;
+    }
 
   event ListingCreated(bytes32 key, uint listingId, address nftContract, uint tokenId, uint256 startingPrice, uint256 endingPrice, uint256 duration);
   event ListingCancelled(bytes32 key, uint listingId, address nftContract, uint tokenId);
@@ -460,13 +515,29 @@ contract ToppyMarketPlace is Ownable{
         address _eventHistory,
         address _supportPayment,
         address _masterSetting,
-        address _toppyMint
+        address _toppyMint,
+        address _executor
       ) {
-        eventHistory = EventHistory(_eventHistory);
-        supportPayment = SupportedPayment(_supportPayment);
-        masterSetting = MasterSetting(_masterSetting);
+        eventHistory = ToppyEventHistory(_eventHistory);
+        supportPayment = ToppySupportPayment(_supportPayment);
+        masterSetting = ToppyMaster(_masterSetting);
         toppyMint = ToppyMint(_toppyMint);
+        executor = _executor;
   }
+
+    function updateProperties(
+        address _eventHistory,
+        address _supportPayment,
+        address _masterSetting,
+        address _toppyMint,
+        address _executor
+        ) public onlyOwner {
+        eventHistory = ToppyEventHistory(_eventHistory);
+        supportPayment = ToppySupportPayment(_supportPayment);
+        masterSetting = ToppyMaster(_masterSetting);
+        toppyMint = ToppyMint(_toppyMint);
+        executor = _executor;
+    }
 
     function getOffersHistories(uint _listingId) public view returns (Offer[] memory) {
         return  offersHistories[_listingId];
@@ -494,48 +565,48 @@ contract ToppyMarketPlace is Ownable{
     }
 
     function createListing(
-      ListingParams memory _listingParams) public {
-      
-      // check storage requirements
-      require(_listingParams.listingPrice < 340282366920938463463374607431768211455); // 128 bits
-      require(_listingParams.endingPrice < 340282366920938463463374607431768211455); // 128 bits
-      require(_listingParams.duration <= 18446744073709551615); // 64 bits
-      require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
-      require(ERC721(_listingParams.nftContract).ownerOf(_listingParams.tokenId) == msg.sender, "you are not owner of nft");
-  
-      if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
-
-      bytes32 key = _getId(_listingParams.nftContract, _listingParams.tokenId);
-
-      Listing memory listing = Listing(
-          key,
-          _listingParams.listingType,
-          uint(listingId),
-          msg.sender,
-          uint(_listingParams.tokenId),
-          uint(_listingParams.listingPrice),
-          uint(_listingParams.endingPrice),
-          uint(_listingParams.duration),
-          uint(block.timestamp),
-          _listingParams.tokenPayment,
-          _listingParams.priceType,
-          _listingParams.nftContract
-      );
-
-      tokenIdToListing[key] = listing;
-      auctionIdToAuction[listingId] = listing;
-      nftsForSaleByAddress[msg.sender].add(key);
-      nftsForSaleIds.add(key);
+        ListingParams memory _listingParams) public {
         
-      emit ListingCreated(key, listingId, _listingParams.nftContract, _listingParams.tokenId, _listingParams.listingPrice, _listingParams.endingPrice, _listingParams.duration);
-      
-      eventHistory.addEventHistory(key, msg.sender, address(0), _listingParams.listingPrice, "createAuction");
-      //IERC721(trustedNftAddress).transferFrom(msg.sender, address(this), _listingParams.tokenId);
-      listingId++;
-  }
+        // check storage requirements
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
+        require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
+        require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
+        require(ERC721(_listingParams.nftContract).ownerOf(_listingParams.tokenId) == msg.sender, "you are not owner of nft");
+    
+        if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
+        if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
 
-  function getListings(uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {
-        
+        bytes32 key = _getId(_listingParams.nftContract, _listingParams.tokenId);
+
+        Listing memory listing = Listing(
+            key,
+            _listingParams.listingType,
+            uint(listingId),
+            msg.sender,
+            uint(_listingParams.tokenId),
+            uint(_listingParams.listingPrice),
+            uint(_listingParams.endingPrice),
+            uint(_listingParams.duration),
+            uint(block.timestamp),
+            _listingParams.tokenPayment,
+            _listingParams.priceType,
+            _listingParams.nftContract
+        );
+
+        tokenIdToListing[key] = listing;
+        auctionIdToAuction[listingId] = listing;
+        nftsForSaleByAddress[msg.sender].add(key);
+        nftsForSaleByAddress[_listingParams.nftContract].add(key);
+        nftsForSaleIds.add(key);
+            
+        emit ListingCreated(key, listingId, _listingParams.nftContract, _listingParams.tokenId, _listingParams.listingPrice, _listingParams.endingPrice, _listingParams.duration);
+        eventHistory.addEventHistory(key, msg.sender, address(0), _listingParams.listingPrice, "createAuction", _listingParams.tokenPayment, _listingParams.nftContract);
+        //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
+        listingId++;
+    }
+
+    function getListings(uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {        
         require(startIndex < endIndex, "Invalid indexes supplied!");
         uint len = endIndex - startIndex;
         require(len <= totalListed(), "Invalid length!");
@@ -549,9 +620,8 @@ contract ToppyMarketPlace is Ownable{
         }
         return _listings;
     }
-
-  function getListingsBySeller(address seller, uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {
-        
+  
+    function getListingsBySeller(address seller, uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {
         require(startIndex < endIndex, "Invalid indexes supplied!");
         uint len = endIndex - startIndex;
         require(len <= totalListedByOwner(seller), "Invalid length!");
@@ -566,40 +636,41 @@ contract ToppyMarketPlace is Ownable{
         return _listings;
     }
 
-  function getListingByListingId(uint _listingId) public view returns (
-      Listing memory listing
-  ) {
-      Listing memory listing_ = auctionIdToAuction[_listingId];
-      require(listing_.startedAt > 0);
-      return listing_;
-  }
-
-  function getListingByNFTKey(
-      bytes32 _key) public view returns (
-      Listing memory listing
-  ) {
-      Listing memory listing_ = tokenIdToListing[_key];
-      require(listing_.startedAt > 0);
-      return listing_;
-  }
-
-  function cancelListingByListingId(uint _listingId) public {
-      Listing memory listing_ = auctionIdToAuction[_listingId];
-
-      require(listing_.startedAt > 0);
-      require(nftsForSaleIds.contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
-      require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
-
-      delete auctionIdToAuction[_listingId];
-      delete tokenIdToListing[listing_.key];
-      nftsForSaleByAddress[msg.sender].remove(listing_.key);
-      nftsForSaleIds.remove(listing_.key);
-      //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
-      eventHistory.addEventHistory(listing_.key, msg.sender, address(0), 0, "cancelAuction");
-      emit ListingCancelled(listing_.key, _listingId, listing_.nftContract, listing_.tokenId);
+    function getListingByListingId(uint _listingId) public view returns (
+        Listing memory listing
+    ) {
+        Listing memory listing_ = auctionIdToAuction[_listingId];
+        require(listing_.startedAt > 0);
+        return listing_;
     }
 
-  function cancelListingByKey(bytes32 _key) public {
+    function getListingByNFTKey(
+        bytes32 _key) public view returns (
+        Listing memory listing
+    ) {
+        Listing memory listing_ = tokenIdToListing[_key];
+        require(listing_.startedAt > 0);
+        return listing_;
+    }
+
+    function cancelListingByListingId(uint _listingId) public {
+        Listing memory listing_ = auctionIdToAuction[_listingId];
+
+        require(listing_.startedAt > 0);
+        require(nftsForSaleIds.contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
+        require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+
+        delete auctionIdToAuction[_listingId];
+        delete tokenIdToListing[listing_.key];
+        nftsForSaleByAddress[msg.sender].remove(listing_.key);
+        nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
+        nftsForSaleIds.remove(listing_.key);
+        //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
+        eventHistory.addEventHistory(listing_.key, msg.sender, address(0), 0, "cancelAuction", listing_.tokenPayment, listing_.nftContract);
+        emit ListingCancelled(listing_.key, _listingId, listing_.nftContract, listing_.tokenId);
+    }
+
+    function cancelListingByKey(bytes32 _key) public {
       
       Listing memory _listing = tokenIdToListing[_key];
 
@@ -610,9 +681,10 @@ contract ToppyMarketPlace is Ownable{
       delete auctionIdToAuction[_listing.id];
       delete tokenIdToListing[_listing.key];
       nftsForSaleByAddress[msg.sender].remove(_listing.key);
+      nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
       nftsForSaleIds.remove(_listing.key);
       //IERC721(trustedNftAddress).transferFrom(address(this), msg.sender, _listing.tokenId);
-      eventHistory.addEventHistory(_listing.key, msg.sender, address(0), 0, "cancelAuction");
+      eventHistory.addEventHistory(_listing.key, msg.sender, address(0), 0, "cancelAuction", _listing.tokenPayment, _listing.nftContract);
       emit ListingCancelled(_listing.key, _listing.id, _listing.nftContract, _listing.tokenId);
   }
 
@@ -650,13 +722,14 @@ contract ToppyMarketPlace is Ownable{
       }
       
       ERC721(listing_.nftContract).transferFrom(listing_.seller, highestOff.buyer, listing_.tokenId);
-      eventHistory.addEventHistory(_key, listing_.seller, highestOff.buyer, highestOff.offerPrice, "acceptOffer");
+      eventHistory.addEventHistory(_key, listing_.seller, highestOff.buyer, highestOff.offerPrice, "acceptOffer", listing_.tokenPayment, listing_.nftContract);
       delete tokenIdToListing[listing_.key];
       delete auctionIdToAuction[listing_.id];
       delete highestOffer[listing_.key];
       nftsForSaleByAddress[listing_.seller].remove(listing_.key);
+      nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
       emit ListingSuccessful(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, highestOff.offerPrice, highestOff.buyer);
-  }
+    }
 
     function offer(bytes32 _key, uint256 _amount) public payable {
       
@@ -668,7 +741,7 @@ contract ToppyMarketPlace is Ownable{
       require(_isAuctionExpired(listing_.startedAt, listing_.duration), "expired. no more offer");
       uint secondsPassed = block.timestamp - listing_.startedAt;
       
-      uint newDuration = (listing_.duration - secondsPassed) < 600 ? listing_.duration + 600: listing_.duration;
+      uint newDuration = (listing_.duration - secondsPassed) < masterSetting.durationExtension() ? listing_.duration + masterSetting.durationExtension() : listing_.duration;
       Offer storage highestOff = highestOffer[_key];
       require(_amount > highestOff.offerPrice, "offer less than highest offer");
 
@@ -690,18 +763,19 @@ contract ToppyMarketPlace is Ownable{
 
       //extend bidding period for another 10 minutes if remaining time less than 10 mins
       listing_.duration = newDuration;
-      eventHistory.addEventHistory(listing_.key, msg.sender, listing_.seller, _amount, "offer");
+      eventHistory.addEventHistory(listing_.key, msg.sender, listing_.seller, _amount, "offer", listing_.tokenPayment, listing_.nftContract);
       emit AuctionOffer(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, _amount, msg.sender);
-  }
+    }
 
-  /// Used by Fix price and Auction price Buy/Bid
-  function bid(bytes32 _key) public payable {
+    /// Used by Fix price and Auction price Buy/Bid
+    function bid(bytes32 _key) public payable {
       Listing memory listing_ = tokenIdToListing[_key];
       require(listing_.startedAt > 0);
       uint256 price = getCurrentPrice(listing_);
       require(price > 0, "no price");
-      require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) != msg.sender, "do not buy own nft");
-
+      address ownerNFT = ERC721(listing_.nftContract).ownerOf(listing_.tokenId);
+      require(ownerNFT != msg.sender, "do not buy own nft");
+        
       if(listing_.priceType == PriceType.ETHER) require(msg.value >= price, "not enough balance");  
       else TransferHelper.safeTransferFrom(listing_.tokenPayment, msg.sender, address(this), price);
 
@@ -716,33 +790,34 @@ contract ToppyMarketPlace is Ownable{
           
         if(creatorOwnerAddress != address(0)) TransferHelper.safeTransferBNB(creatorOwnerAddress, creatorFee);
         TransferHelper.safeTransferBNB(masterSetting.platformOwner(), fee);
-        TransferHelper.safeTransferBNB(listing_.seller, amountAfterFee);
+        TransferHelper.safeTransferBNB(ownerNFT, amountAfterFee);
         
       }else{
           
         if(creatorOwnerAddress != address(0)) TransferHelper.safeTransfer(listing_.tokenPayment, creatorOwnerAddress, creatorFee);
         TransferHelper.safeTransfer(listing_.tokenPayment, masterSetting.platformOwner(), fee);
-        TransferHelper.safeTransfer(listing_.tokenPayment, listing_.seller, amountAfterFee);
+        TransferHelper.safeTransfer(listing_.tokenPayment, ownerNFT, amountAfterFee);
       }
-      ERC721(listing_.nftContract).transferFrom(listing_.seller, msg.sender, listing_.tokenId);
-      eventHistory.addEventHistory(listing_.key, listing_.seller, msg.sender, price, "bid");
+      ERC721(listing_.nftContract).transferFrom(ownerNFT, msg.sender, listing_.tokenId);
+      eventHistory.addEventHistory(listing_.key, ownerNFT, msg.sender, price, "bid", listing_.tokenPayment, listing_.nftContract);
       delete tokenIdToListing[listing_.key];
       delete auctionIdToAuction[listing_.id];
       nftsForSaleByAddress[msg.sender].remove(listing_.key);
+      nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
       emit ListingSuccessful(listing_.key, auctionId_temp, listing_.nftContract, listing_.tokenId, price, msg.sender);
-  }
+    }
 
-  function getCurrentPriceByListingId(uint _listingId) public view returns (uint) {
-      Listing memory listing_ = auctionIdToAuction[_listingId];
-      return getCurrentPrice(listing_);
-  }
+    function getCurrentPriceByListingId(uint _listingId) public view returns (uint) {
+        Listing memory listing_ = auctionIdToAuction[_listingId];
+        return getCurrentPrice(listing_);
+    }
 
-  function getCurrentPriceByKey(bytes32 _key) public view returns (uint) {
-      Listing memory listing_ = tokenIdToListing[_key];
-      return getCurrentPrice(listing_);
-  }
+    function getCurrentPriceByKey(bytes32 _key) public view returns (uint) {
+        Listing memory listing_ = tokenIdToListing[_key];
+        return getCurrentPrice(listing_);
+    }
   
-  function getCurrentPrice(Listing memory listing_) internal view returns (uint) {
+    function getCurrentPrice(Listing memory listing_) internal view returns (uint) {
       
       if(listing_.listingType == ListingType.Fix){
           return listing_.listingPrice;
@@ -753,9 +828,8 @@ contract ToppyMarketPlace is Ownable{
       if(listing_.listingType == ListingType.English){
           return _getEnglishCurrentPrice(listing_);
       }
-      
       return 0;
-  }
+    }
 
     function _getEnglishCurrentPrice(Listing memory listing_) internal view returns (uint) 
     {
