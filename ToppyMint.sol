@@ -125,7 +125,7 @@ contract Ownable {
 }
 
 contract ToppyStandardNFT {
-    function mint(address _to, bytes32 _cid) public returns (uint){}
+    function mint(address _to, string memory _cid) public returns (uint){}
 }
 
 contract ToppyMaster {
@@ -183,7 +183,7 @@ contract ToppyMint is Ownable {
         return keccak256(abi.encodePacked(bAddress, bTokenId));
     }
 
-    function mintNative(address _contract, bytes32 cid) public payable {
+    function mintNative(address _contract, string memory cid) public payable {
         bool elig = eligibleContracts[_contract];
         require(elig, "not eligible contract");
         

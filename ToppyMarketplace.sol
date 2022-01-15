@@ -665,6 +665,7 @@ contract ToppyMarketPlace is Ownable{
         nftsForSaleByAddress[msg.sender].remove(listing_.key);
         nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
         nftsForSaleIds.remove(listing_.key);
+        cancelEnglishOffer(listing_);
         //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
         eventHistory.addEventHistory(listing_.key, msg.sender, address(0), 0, "cancelAuction", listing_.tokenPayment, listing_.nftContract);
         emit ListingCancelled(listing_.key, _listingId, listing_.nftContract, listing_.tokenId);
@@ -683,10 +684,23 @@ contract ToppyMarketPlace is Ownable{
       nftsForSaleByAddress[msg.sender].remove(_listing.key);
       nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
       nftsForSaleIds.remove(_listing.key);
-      //IERC721(trustedNftAddress).transferFrom(address(this), msg.sender, _listing.tokenId);
+      cancelEnglishOffer(_listing);
       eventHistory.addEventHistory(_listing.key, msg.sender, address(0), 0, "cancelAuction", _listing.tokenPayment, _listing.nftContract);
       emit ListingCancelled(_listing.key, _listing.id, _listing.nftContract, _listing.tokenId);
   }
+
+    function cancelEnglishOffer(Listing memory _listing) internal {
+    
+        if(_listing.listingType == ListingType.English){
+            Offer storage highestOff = highestOffer[_listing.key];
+            if (_listing.priceType == PriceType.ETHER) {
+                TransferHelper.safeTransferBNB(highestOff.buyer, highestOff.offerPrice);
+            }else{
+                TransferHelper.safeTransfer(_listing.tokenPayment, highestOff.buyer, highestOff.offerPrice);
+            }
+            delete highestOffer[_listing.key];
+        }      
+    }
 
     function acceptOffer(bytes32 _key) public payable {
       Listing memory listing_ = tokenIdToListing[_key];

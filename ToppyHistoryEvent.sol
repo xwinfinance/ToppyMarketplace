@@ -25,7 +25,7 @@ contract Ownable {
   }
 }
 
-contract EventHistory is Ownable{
+contract ToppyEventHistory is Ownable{
 
   struct eventHistory {
         address from;

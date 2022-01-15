@@ -13,11 +13,33 @@
     to the best of the developers' knowledge to work as intended.
 */
 
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity = 0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+library ToppyUtils {
+    function toHex16 (bytes16 data) internal pure returns (bytes32 result) {
+        result = bytes32 (data) & 0xFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000 |
+              (bytes32 (data) & 0x0000000000000000FFFFFFFFFFFFFFFF00000000000000000000000000000000) >> 64;
+        result = result & 0xFFFFFFFF000000000000000000000000FFFFFFFF000000000000000000000000 |
+              (result & 0x00000000FFFFFFFF000000000000000000000000FFFFFFFF0000000000000000) >> 32;
+        result = result & 0xFFFF000000000000FFFF000000000000FFFF000000000000FFFF000000000000 |
+              (result & 0x0000FFFF000000000000FFFF000000000000FFFF000000000000FFFF00000000) >> 16;
+        result = result & 0xFF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000 |
+              (result & 0x00FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000) >> 8;
+        result = (result & 0xF000F000F000F000F000F000F000F000F000F000F000F000F000F000F000F000) >> 4 |
+              (result & 0x0F000F000F000F000F000F000F000F000F000F000F000F000F000F000F000F00) >> 8;
+        result = bytes32 (0x3030303030303030303030303030303030303030303030303030303030303030 +
+              uint256 (result) +
+              (uint256 (result) + 0x0606060606060606060606060606060606060606060606060606060606060606 >> 4 &
+              0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F) * 39);
+    }
+
+  function toHex (bytes32 data) public pure returns (string memory) {
+      return string (abi.encodePacked ("0x", toHex16 (bytes16 (data)), toHex16 (bytes16 (data << 128))));
+  }
+}
 
 library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -207,8 +229,21 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
+contract ToppyEventHistory {
 
-contract NFT is ERC721Enumerable, Ownable {
+    function addEventHistory(
+        bytes32 _key,
+        address _from,
+        address _to,
+        uint _price,
+        string memory _eventType,
+        address _tokenPayment,
+        address _nftContract
+        ) public {}
+        
+}
+
+contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   using Strings for uint256;
   using SafeMath for uint;
     
@@ -219,25 +254,28 @@ contract NFT is ERC721Enumerable, Ownable {
 
   string public baseURI;
   string public baseExtension = ".json";
+  string public rarityURI;
+  string public notRevealedUri;
   uint256 public cost = 0.05 ether;
   
-  uint256 public platformComm = 500;
-  uint256 public creatorComm = 1000;
-  uint256 public managerComm = 1000;
+  //default fee structure
+  uint256 public platformComm = 1000;
+  uint256 public creatorComm = 7000;
+  uint256 public managerComm = 2000;
   
   address public platformAddress = address(0);
   address public creatorAddress = address(0);
   address public managerAddress = address(0);
+  address public tokenPayment = address(0);
 
   uint256 public maxSupply = 100;
-  uint256 public maxMintAmount = 5;
+  uint256 public maxMintAmount = 10;
   bool public paused = false;
-  string public notRevealedUri;
   mapping(address => bool) public whitelisted;
   mapping(uint => bool) public revealNFT;
   PriceType public priceType = PriceType.ETHER;
-  address public tokenPayment = address(0);
-  
+  ToppyEventHistory eventHistory;
+
   event Received(address, uint);
     
   constructor(
@@ -249,9 +287,7 @@ contract NFT is ERC721Enumerable, Ownable {
     address _platformAddress,
     address _creatorAddress,
     address _managerAddress,
-    uint _platformComm,
-    uint _creatorComm,
-    uint _managerComm
+    address _eventHistory
   ) ERC721(_name, _symbol) {
     setBaseURI(_initBaseURI);
     setNotRevealedURI(_initNotRevealedUri);
@@ -259,9 +295,7 @@ contract NFT is ERC721Enumerable, Ownable {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
-    platformComm = _platformComm;
-    creatorComm = _creatorComm;
-    managerComm = _managerComm;
+    eventHistory = ToppyEventHistory(_eventHistory);
   }
 
   // internal
@@ -291,9 +325,22 @@ contract NFT is ERC721Enumerable, Ownable {
     for (uint256 i = 1; i <= _mintAmount; i++) {
       _safeMint(_to, supply + i);
       revealNFT[supply + i] = false;
+      bytes32 key = _getId(address(this), supply + i);
+      eventHistory.addEventHistory(key, address(0), msg.sender, 0, "mint", address(0), address(this));
     }
     //make payment
     _payFee(totalAmount);
+  }
+
+  function _getId(address _contract, uint _tokenId) internal pure returns(bytes32) {
+    bytes32 bAddress = bytes32(uint256(uint160(_contract)));
+    bytes32 bTokenId = bytes32(_tokenId);
+    return keccak256(abi.encodePacked(bAddress, bTokenId));
+  }
+
+  function getProperties() public view returns (
+    string memory, string memory, uint, uint, uint, string memory){
+    return (symbol(), name(), totalSupply(), maxSupply, cost, rarityURI);
   }
 
   function walletOfOwner(address _owner) public view returns (uint256[] memory){
@@ -315,9 +362,11 @@ contract NFT is ERC721Enumerable, Ownable {
         return notRevealedUri;
     }
 
-    string memory currentBaseURI = _baseURI();
+    string memory currentBaseURI = _baseURI();    
+    string memory key = ToppyUtils.toHex(_getId(address(this), tokenId));
+
     return bytes(currentBaseURI).length > 0
-        ? string(abi.encodePacked(currentBaseURI, tokenId.toString(), baseExtension))
+        ? string(abi.encodePacked(currentBaseURI, key, baseExtension))
         : "";
   }
 
@@ -326,13 +375,14 @@ contract NFT is ERC721Enumerable, Ownable {
 
       require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
       require(ownerOf(tokenId) == msg.sender, "you are not owner of nft");
+      require(revealNFT[tokenId] == false, "already been revealed");
       revealNFT[tokenId] = true;
   }
 
   //only nft owner
   function revealAll(uint[] calldata tokenIds) public {
       for(uint i=0; i < tokenIds.length; i++){
-        if(_exists(tokenIds[i]) && ownerOf(tokenIds[i]) == msg.sender){
+        if(_exists(tokenIds[i]) && ownerOf(tokenIds[i]) == msg.sender && revealNFT[tokenIds[i]] == false){
           revealNFT[tokenIds[i]] = true;
         }
       }
@@ -354,6 +404,10 @@ contract NFT is ERC721Enumerable, Ownable {
     maxSupply = _maxSupply;
   }
 
+  function setEventHistory(address _eventHistory) public onlyOwner {
+    eventHistory = ToppyEventHistory(_eventHistory);
+  }
+
   function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress) public onlyOwner {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
@@ -370,6 +424,10 @@ contract NFT is ERC721Enumerable, Ownable {
 
   function setBaseURI(string memory _newBaseURI) public onlyOwner {
     baseURI = _newBaseURI;
+  }
+
+  function setRarityURI(string memory _newRarityURI) public onlyOwner {
+    rarityURI = _newRarityURI;
   }
 
   function setBaseExtension(string memory _newBaseExtension) public onlyOwner {

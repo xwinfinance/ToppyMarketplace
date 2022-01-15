@@ -14,7 +14,7 @@ contract ToppyStandardNFT is ERC721Enumerable, Ownable {
   string public baseFileName = "/metadata.json";
   bool public paused = false;
   mapping(address => bool) public whitelisted;
-  mapping(uint => bytes32) public nftCID;
+  mapping(uint => string) public nftCID;
   mapping (address => bool) public eligibleMINTERS;
   
   uint public TOKENID = 1;
@@ -42,7 +42,7 @@ contract ToppyStandardNFT is ERC721Enumerable, Ownable {
     }
 
     // public
-    function mint(address _to, bytes32 _cid) public returns (uint){
+    function mint(address _to, string memory _cid) public returns (uint){
         
         require(eligibleMINTERS[msg.sender] == true, "not allow");
         require(!paused);
@@ -73,7 +73,7 @@ contract ToppyStandardNFT is ERC721Enumerable, Ownable {
         // baseFileName = "metadata.json"
         // https://bafyreif7mqmjnzv6z2mufxlmrziqnbe7qlozupb2jszmy6ugfbdvayanr4.ipfs.dweb.link/metadata.json
 
-        bytes32 cid = nftCID[tokenId];
+        string memory cid = nftCID[tokenId];
         string memory currentBaseURI = _baseURI();
         return bytes(currentBaseURI).length > 0
             ? string(abi.encodePacked(currentBaseURI, cid, baseFileName))
