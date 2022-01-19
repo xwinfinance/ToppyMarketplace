@@ -183,6 +183,14 @@ contract ToppyMint is Ownable {
         return keccak256(abi.encodePacked(bAddress, bTokenId));
     }
 
+    function setCreator(address _creator, uint _tokenId, address _nftContract) public {
+
+        bool elig = eligibleContracts[_nftContract];
+        require(elig, "not eligible contract");
+        bytes32 key = _getId(_nftContract, _tokenId);
+        creators[key] = _creator;
+    }
+
     function mintNative(address _contract, string memory cid) public payable {
         bool elig = eligibleContracts[_contract];
         require(elig, "not eligible contract");

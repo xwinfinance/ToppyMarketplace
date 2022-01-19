@@ -564,6 +564,20 @@ contract ToppyMarketPlace is Ownable{
         return keccak256(abi.encodePacked(bAddress, bTokenId));
     }
 
+    // allow owner to extend the auction without cancelling it and relist it again
+    function extendListing(uint _listingId) public {
+        
+        Listing memory listing_ = auctionIdToAuction[_listingId];
+        Offer memory highestOff = highestOffer[listing_.key];
+        require(nftsForSaleIds.contains(listing_.key), "Trying to extend listing which is not listed yet!");
+        require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        require(_isAuctionExpired(listing_.startedAt, listing_.duration), "cannot extend before it expires");
+        require(highestOff.offerPrice == 0, "cannot extend if there is bidder");
+        listing_.startedAt = uint(block.timestamp);      
+        eventHistory.addEventHistory(listing_.key, msg.sender, address(0), 0, "extendAuction", listing_.tokenPayment, listing_.nftContract);
+    }
+
+
     function createListing(
         ListingParams memory _listingParams) public {
         
@@ -636,18 +650,13 @@ contract ToppyMarketPlace is Ownable{
         return _listings;
     }
 
-    function getListingByListingId(uint _listingId) public view returns (
-        Listing memory listing
-    ) {
+    function getListingByListingId(uint _listingId) public view returns (Listing memory listing) {
         Listing memory listing_ = auctionIdToAuction[_listingId];
         require(listing_.startedAt > 0);
         return listing_;
     }
 
-    function getListingByNFTKey(
-        bytes32 _key) public view returns (
-        Listing memory listing
-    ) {
+    function getListingByNFTKey(bytes32 _key) public view returns (Listing memory listing) {
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
         return listing_;
@@ -665,7 +674,7 @@ contract ToppyMarketPlace is Ownable{
         nftsForSaleByAddress[msg.sender].remove(listing_.key);
         nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
         nftsForSaleIds.remove(listing_.key);
-        cancelEnglishOffer(listing_);
+        _cancelEnglishOffer(listing_);
         //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
         eventHistory.addEventHistory(listing_.key, msg.sender, address(0), 0, "cancelAuction", listing_.tokenPayment, listing_.nftContract);
         emit ListingCancelled(listing_.key, _listingId, listing_.nftContract, listing_.tokenId);
@@ -684,12 +693,12 @@ contract ToppyMarketPlace is Ownable{
       nftsForSaleByAddress[msg.sender].remove(_listing.key);
       nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
       nftsForSaleIds.remove(_listing.key);
-      cancelEnglishOffer(_listing);
+      _cancelEnglishOffer(_listing);
       eventHistory.addEventHistory(_listing.key, msg.sender, address(0), 0, "cancelAuction", _listing.tokenPayment, _listing.nftContract);
       emit ListingCancelled(_listing.key, _listing.id, _listing.nftContract, _listing.tokenId);
-  }
+    }
 
-    function cancelEnglishOffer(Listing memory _listing) internal {
+    function _cancelEnglishOffer(Listing memory _listing) internal {
     
         if(_listing.listingType == ListingType.English){
             Offer storage highestOff = highestOffer[_listing.key];
@@ -783,6 +792,7 @@ contract ToppyMarketPlace is Ownable{
 
     /// Used by Fix price and Auction price Buy/Bid
     function bid(bytes32 _key) public payable {
+
       Listing memory listing_ = tokenIdToListing[_key];
       require(listing_.startedAt > 0);
       uint256 price = getCurrentPrice(listing_);
@@ -845,14 +855,12 @@ contract ToppyMarketPlace is Ownable{
       return 0;
     }
 
-    function _getEnglishCurrentPrice(Listing memory listing_) internal view returns (uint) 
-    {
+    function _getEnglishCurrentPrice(Listing memory listing_) internal view returns (uint) {
         Offer memory highestOff = highestOffer[listing_.key];
         return highestOff.offerPrice == 0 ? listing_.listingPrice : highestOff.offerPrice;
     }
 
-    function _getDutchCurrentPrice(Listing memory listing_) internal view returns (uint) 
-    {
+    function _getDutchCurrentPrice(Listing memory listing_) internal view returns (uint) {
         require(listing_.startedAt > 0);
         uint256 secondsPassed = 0;
 

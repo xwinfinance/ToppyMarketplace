@@ -1,17 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
 
-// Amended by HashLips
-/**
-    !Disclaimer!
-    These contracts have been used to create tutorials,
-    and was created for the purpose to teach people
-    how to create smart contracts on the blockchain.
-    please review this code on your own before using any of
-    the following code for production.
-    HashLips will not be liable in any way if for the use 
-    of the code. That being said, the code has been tested 
-    to the best of the developers' knowledge to work as intended.
-*/
 
 pragma solidity = 0.8.0;
 
@@ -243,6 +231,13 @@ contract ToppyEventHistory {
         
 }
 
+contract ToppyMint {
+    mapping (bytes32 => address) public creators;
+    function setCreator(address _creator, uint _tokenId, address _nftContract) public {}
+
+}
+
+
 contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   using Strings for uint256;
   using SafeMath for uint;
@@ -275,7 +270,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   mapping(uint => bool) public revealNFT;
   PriceType public priceType = PriceType.ETHER;
   ToppyEventHistory eventHistory;
-
+  ToppyMint toppyMint = ToppyMint(address(0x762AdB198269b856D403B9B1dc3bB7dACEa9fD0C));
+    
   event Received(address, uint);
     
   constructor(
@@ -326,6 +322,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
       _safeMint(_to, supply + i);
       revealNFT[supply + i] = false;
       bytes32 key = _getId(address(this), supply + i);
+      toppyMint.setCreator(creatorAddress, supply + i, address(this));
       eventHistory.addEventHistory(key, address(0), msg.sender, 0, "mint", address(0), address(this));
     }
     //make payment
