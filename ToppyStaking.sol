@@ -357,9 +357,6 @@ contract xWinDefi  {
     PoolInfo[] public poolInfo;
 }
 
-contract ToppyMint {
-    mapping (bytes32 => address) public creators;
-}
 
 contract ToppyMaster {
     struct creatorRoyalty {
@@ -407,7 +404,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     uint public totalAllocPoint = 0;
     uint public startBlock;
     uint public BONUS_MULTIPLIER = 1;
-    uint public DEFAULT_SCORE = 1;
+    uint public DEFAULT_SCORE = 0;
     uint public xwinpid;
 
     /// @notice mapping of a nft token to its current properties

@@ -481,7 +481,7 @@ contract ToppyMarketPlace is Ownable{
   ToppyEventHistory public eventHistory;// = EventHistory(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
   ToppySupportPayment public supportPayment;// = SupportedPayment(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
   ToppyMaster public masterSetting;// = MasterSetting(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
-  address public executor;       
+  address public adminExecutor;  //admin executor for accepting the english auction offer     
   uint public listingId = 0; // max is 18446744073709551615
   
   mapping (uint => Offer[]) public offersHistories;
@@ -501,8 +501,8 @@ contract ToppyMarketPlace is Ownable{
         English
     }
 
-    modifier onlyExecutor() {
-        require(msg.sender == executor);
+    modifier onlyAdminExecutor() {
+        require(msg.sender == adminExecutor);
         _;
     }
 
@@ -516,13 +516,13 @@ contract ToppyMarketPlace is Ownable{
         address _supportPayment,
         address _masterSetting,
         address _toppyMint,
-        address _executor
+        address _adminExecutor
       ) {
         eventHistory = ToppyEventHistory(_eventHistory);
         supportPayment = ToppySupportPayment(_supportPayment);
         masterSetting = ToppyMaster(_masterSetting);
         toppyMint = ToppyMint(_toppyMint);
-        executor = _executor;
+        adminExecutor = _adminExecutor;
   }
 
     function updateProperties(
@@ -530,13 +530,13 @@ contract ToppyMarketPlace is Ownable{
         address _supportPayment,
         address _masterSetting,
         address _toppyMint,
-        address _executor
+        address _adminExecutor
         ) public onlyOwner {
         eventHistory = ToppyEventHistory(_eventHistory);
         supportPayment = ToppySupportPayment(_supportPayment);
         masterSetting = ToppyMaster(_masterSetting);
         toppyMint = ToppyMint(_toppyMint);
-        executor = _executor;
+        adminExecutor = _adminExecutor;
     }
 
     function getOffersHistories(uint _listingId) public view returns (Offer[] memory) {
@@ -565,9 +565,8 @@ contract ToppyMarketPlace is Ownable{
     }
 
     // allow owner to extend the auction without cancelling it and relist it again
-    function extendListing(uint _listingId) public {
-        
-        Listing memory listing_ = auctionIdToAuction[_listingId];
+    function extendListing(bytes32 _key) public {        
+        Listing memory listing_ = tokenIdToListing[_key];
         Offer memory highestOff = highestOffer[listing_.key];
         require(nftsForSaleIds.contains(listing_.key), "Trying to extend listing which is not listed yet!");
         require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
@@ -709,6 +708,12 @@ contract ToppyMarketPlace is Ownable{
             }
             delete highestOffer[_listing.key];
         }      
+    }
+
+    function acceptOfferByAdmin(bytes32 _key) public payable onlyAdminExecutor {
+      Listing memory listing_ = tokenIdToListing[_key];
+      require(listing_.startedAt > 0);
+      _acceptOffer(_key);
     }
 
     function acceptOffer(bytes32 _key) public payable {
@@ -877,6 +882,13 @@ contract ToppyMarketPlace is Ownable{
 
             return uint256(currentPrice);
         }
+     }
+
+     function isAuctionExpired(bytes32 _key) public view returns (bool) 
+     {
+        Listing memory listing_ = tokenIdToListing[_key];
+        if(!nftsForSaleIds.contains(listing_.key)) return false;
+        return _isAuctionExpired(listing_.startedAt, listing_.duration);
      }
 
      function _isAuctionExpired(uint _startedAt, uint _duration) internal view returns (bool) 

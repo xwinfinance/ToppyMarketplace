@@ -302,10 +302,10 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   // public
   function mint(address _to, uint256 _mintAmount) public payable {
     uint256 supply = totalSupply();
-    require(!paused);
-    require(_mintAmount > 0);
-    require(_mintAmount <= maxMintAmount);
-    require(supply + _mintAmount <= maxSupply);
+    require(!paused, "temporary out of service");
+    require(_mintAmount > 0, "must be greater than 0");
+    require(_mintAmount <= maxMintAmount, "cannot mint more than setting at single time");
+    require(supply + _mintAmount <= maxSupply, "cannot mint more than maxsupply");
 
     uint totalAmount = cost.mul(_mintAmount);
     
