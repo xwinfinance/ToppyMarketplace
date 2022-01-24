@@ -541,7 +541,7 @@ contract ToppyMarketPlace is Ownable{
 
     // allow owner to extend the auction without cancelling it and relist it again
     function extendListing(bytes32 _key) public {        
-        Listing memory listing_ = tokenIdToListing[_key];
+        Listing storage listing_ = tokenIdToListing[_key];
         Offer memory highestOff = highestOffer[listing_.key];
         
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to extend listing which is not listed yet!");        
