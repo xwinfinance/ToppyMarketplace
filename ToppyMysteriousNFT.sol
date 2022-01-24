@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 
 
-pragma solidity = 0.8.0;
+pragma solidity ^ 0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -217,26 +217,11 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-contract ToppyEventHistory {
-
-    function addEventHistory(
-        bytes32 _key,
-        address _from,
-        address _to,
-        uint _price,
-        string memory _eventType,
-        address _tokenPayment,
-        address _nftContract
-        ) public {}
-        
-}
-
 contract ToppyMint {
     mapping (bytes32 => address) public creators;
     function setCreator(address _creator, uint _tokenId, address _nftContract) public {}
 
 }
-
 
 contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   using Strings for uint256;
@@ -247,6 +232,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
       TOKEN
   }
 
+  event Minted(bytes32 key, address from, address nftContract, uint tokenId, string cid);
+  
   string public baseURI;
   string public baseExtension = ".json";
   string public rarityURI;
@@ -269,7 +256,6 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   mapping(address => bool) public whitelisted;
   mapping(uint => bool) public revealNFT;
   PriceType public priceType = PriceType.ETHER;
-  ToppyEventHistory eventHistory;
   ToppyMint toppyMint = ToppyMint(address(0x762AdB198269b856D403B9B1dc3bB7dACEa9fD0C));
     
   event Received(address, uint);
@@ -282,8 +268,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     uint _maxSupply,
     address _platformAddress,
     address _creatorAddress,
-    address _managerAddress,
-    address _eventHistory
+    address _managerAddress
   ) ERC721(_name, _symbol) {
     setBaseURI(_initBaseURI);
     setNotRevealedURI(_initNotRevealedUri);
@@ -291,7 +276,6 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
-    eventHistory = ToppyEventHistory(_eventHistory);
   }
 
   // internal
@@ -319,11 +303,12 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     }
   
     for (uint256 i = 1; i <= _mintAmount; i++) {
-      _safeMint(_to, supply + i);
-      revealNFT[supply + i] = false;
-      bytes32 key = _getId(address(this), supply + i);
-      toppyMint.setCreator(creatorAddress, supply + i, address(this));
-      eventHistory.addEventHistory(key, address(0), msg.sender, 0, "mint", address(0), address(this));
+      uint _tokenId = supply + i;
+      _safeMint(_to, _tokenId);
+      revealNFT[_tokenId] = false;
+      bytes32 key = _getId(address(this), _tokenId);
+      toppyMint.setCreator(creatorAddress, _tokenId, address(this));
+      emit Minted(key, msg.sender, address(0), _tokenId, "");
     }
     //make payment
     _payFee(totalAmount);
@@ -399,10 +384,6 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
 
   function setMaxSupply(uint _maxSupply) public onlyOwner {
     maxSupply = _maxSupply;
-  }
-
-  function setEventHistory(address _eventHistory) public onlyOwner {
-    eventHistory = ToppyEventHistory(_eventHistory);
   }
 
   function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress) public onlyOwner {

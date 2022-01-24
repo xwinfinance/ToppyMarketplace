@@ -569,7 +569,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         }
     }
 
-
     /// @dev Get the rarity score of each nft at the collection base
     function getNFTScores (address _nftToken, uint _tokenId) public view returns (uint amount) {
         // if no score but still allow for interest
@@ -582,17 +581,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         PoolInfo memory pool = poolInfo[_pid];
         require(pool.endPeriod > block.number, "stop staking");
         _stake(msg.sender, _pid, tokenId);
-    }
-
-    /// stake in bulk all tokens belonging 
-    function stakeAll(uint _pid) external nonReentrant payable {
-        PoolInfo memory pool = poolInfo[_pid];
-        ToppyMysteriousNFT nftContract = ToppyMysteriousNFT(pool.nftToken);
-        require(pool.endPeriod > block.number, "stop staking");
-        uint balance = nftContract.balanceOf(msg.sender);
-        for (uint i = 0; i < balance; i++) {
-            _stake(msg.sender, _pid, nftContract.tokenOfOwnerByIndex(msg.sender,i));
-        }
     }
 
     // register nft token by user
@@ -630,22 +618,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         emit Staked(_user, _pid, amount, _tokenId);
     }
 
-    // /// remove staking 
-    // function unstake(uint _pid, uint _tokenId) external nonReentrant payable {
-    //     // PoolInfo memory pool = poolInfo[_pid];
-    //     _unstake(msg.sender, _pid, _tokenId);
-    // }
-
-    // /// remove staking in bulk all tokens belonging 
-    // function unstakeBatch(uint _pid, uint[] memory tokenIds) external nonReentrant payable {
-    //     PoolInfo memory pool = poolInfo[_pid];
-    //     for (uint i = 0; i < tokenIds.length; i++) {
-    //         if (tokenOwner[pool.nftToken][tokenIds[i]] == msg.sender) {
-    //             _unstake(msg.sender, _pid, tokenIds[i]);
-    //         }
-    //     }
-    // }
-
     // harvest to get xwin as interest for nft owner
     function harvest(uint _pid, uint _tokenId) public nonReentrant payable{
 
@@ -664,40 +636,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         user.rewardDebt = user.amount.mul(pool.accCakePerShare).div(1e18);
         emit RewardPaid(msg.sender, pending);
     }
-
-    // // unstake token from farm 
-    // function _unstake(
-    //     address _user,
-    //     uint _pid, 
-    //     uint _tokenId
-    // ) internal {
-
-    //     PoolInfo storage pool = poolInfo[_pid];
-    //     require(IERC721(pool.nftToken).ownerOf(_tokenId) == msg.sender, "you are not owner of nft");
-    //     bytes32 hashedKey = _getId(pool.nftToken, _tokenId);
-    //     UserInfo storage user = userInfo[_pid][hashedKey];
-        
-    //     updatePool(_pid);
-        
-    //     uint pending = user.amount.mul(pool.accCakePerShare).div(1e18).sub(user.rewardDebt);
-    //     if(pending > 0) {
-    //         _safexWINTransfer(msg.sender, pending, hashedKey);
-    //     }
-
-    //     uint amount = user.tokenStakedAmount[_tokenId]; 
-    //     if(amount > 0) {
-    //         user.amount = user.amount.sub(amount);
-    //     }
-    //     delete user.tokenStakedAmount[_tokenId];
-    //     user.rewardDebt = user.amount.mul(pool.accCakePerShare).div(1e18);
-    //     pool.totalStakedBalance = pool.totalStakedBalance.sub(amount); //update total staked amount by pool basis
-
-    //     //withdraw xwin farming 
-    //     _xwinDefi.WithdrawFarm(xwinpid, amount);
-    //     _burn(address(this), amount);
-
-    //     emit Unstaked(_user, _pid, amount, _tokenId);
-    // }
 
     // Set contribution amounts for NFTs
     function setNFTScores(

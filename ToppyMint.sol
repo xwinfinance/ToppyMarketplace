@@ -132,33 +132,19 @@ contract ToppyMaster {
     uint public mintFee;
     address public platformOwner;
 }
-contract ToppyEventHistory {
-
-    function addEventHistory(
-        bytes32 _key,
-        address _from,
-        address _to,
-        uint _price,
-        string memory _eventType,
-        address _tokenPayment,
-        address _nftContract
-        ) public {}
-        
-}
 
 contract ToppyMint is Ownable {
     
     // =========== Start Smart Contract Setup ==============
 
     ToppyMaster masterSetting;
-    ToppyEventHistory eventHistory;// = EventHistory(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
     mapping(address => bool) public whitelisted;
   
+    event Minted(bytes32 key, address from, address nftContract, uint tokenId, string cid);
+  
     constructor(
-        address _eventHistory,
         address _masterSetting
         ) {
-        eventHistory = ToppyEventHistory(_eventHistory);
         masterSetting = ToppyMaster(_masterSetting);
     }
     
@@ -166,10 +152,8 @@ contract ToppyMint is Ownable {
     mapping (address => bool) public eligibleContracts;
   
     function updateProperties(
-        address _eventHistory,
         address _masterSetting
         ) public onlyOwner {
-        eventHistory = ToppyEventHistory(_eventHistory);
         masterSetting = ToppyMaster(_masterSetting);
     }
 
@@ -204,7 +188,7 @@ contract ToppyMint is Ownable {
         uint tokenId = nft.mint(msg.sender, cid);
         bytes32 key = _getId(_contract, tokenId);
         creators[key] = msg.sender;
-        eventHistory.addEventHistory(key, address(0), msg.sender, 0, "mint", address(0), _contract);
+        emit Minted(key, msg.sender, _contract, tokenId, cid);
     }
     
     
