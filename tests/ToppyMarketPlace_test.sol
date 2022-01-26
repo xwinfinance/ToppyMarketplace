@@ -16,7 +16,7 @@
     address acc2;
     address acc3;
     address acc4;
-
+    bytes32 bidKey = _getId(address(this), 1);
 
     address _TsupportPayment;
     address _TtoppyMint;
@@ -72,33 +72,92 @@
     }
 
     /// #sender: account-0
-    function addAndRemoveListing() public {
+    function addListing() public {
         // mint nft
         uint tokenId = mint(acc0, "testcid");
         Assert.equal(tokenId, 1,"impossible");
+
+        // create listing object
+        ListingParams memory listingObj;
+        listingObj.nftContract = address(this);
+        listingObj.tokenId = tokenId;
+        listingObj.listingType = ListingType.Fix;
+        listingObj.listingPrice = 1;
+        listingObj.duration = 61;
+        listingObj.priceType = PriceType.ETHER;
+
+        // get id
+        bytes32 testKey = _getId(address(this), 1);
+
+        Assert.equal(listingId, 0, "listing id not 0");
+        // add listing
+        createListing(listingObj);
+
+        // get listing
+        Listing memory testListing = getListingByNFTKey(testKey);
+    
+        // check
+        Assert.equal(testListing.id, 0, "listing id not 0");
+        Assert.equal(testListing.tokenId, 1, "token id not 1");
+        Assert.equal(testListing.seller, acc0, "listing owner mismatch");
+        Assert.equal(isAuctionExpired(testKey), false, "Auction expired");
+
+    }
+
+    /// #value: 1000000000000000000
+    /// #sender: account-1
+    function buyListing() public {
+        Assert.ok(testPay(), "Failed");
+    }
+
+    /// #sender: account-0
+    function addAndRemoveListing() public {
+        // mint nft
+        uint tokenId = mint(acc0, "testcid");
+        Assert.equal(tokenId, 2,"impossible");
+
         // create listing object
         ListingParams memory listingObj;
         listingObj.nftContract = address(this);
         listingObj.tokenId = tokenId;
         listingObj.listingType = ListingType.Fix;
         listingObj.listingPrice = 10 ** 15;
-        listingObj.duration = 10000;
+        listingObj.duration = 61;
         listingObj.priceType = PriceType.ETHER;
 
-        Assert.equal(listingId, 0, "listing id not 0");
+        // get id
+        bytes32 testKey = _getId(address(this), tokenId);
+
+        Assert.equal(listingId, 1, "listing id not 1");
         // add listing
         createListing(listingObj);
-        // check
-        Assert.equal(listingId, 1, "listing id not 1");
-    }
 
-    // TODO
-    // cancel listing
-    // bid 
-    // offer
-    // accept offer
-    // types of listing, (english, dutch, fixed)
-
-    // Need to figure out how to test time-sensitive listing
+        // get listing
+        Listing memory testListing = getListingByNFTKey(testKey);
     
+        // check
+        Assert.equal(testListing.id, 1, "listing id not 1");
+        Assert.equal(testListing.tokenId, 2, "token id not 2");
+        Assert.equal(testListing.seller, acc0, "listing owner mismatch");
+        Assert.equal(isAuctionExpired(testKey), false, "Auction expired");
+
+        // cancel listing
+        cancelListingByKey(testKey);
+        
+        // check if deleted
+        try this.getListingByNFTKey(testKey) {
+            Assert.ok(false, "method execution should fail");
+        } catch Error(string memory reason) {
+            // Compare failure reason, check if it is as expected
+            Assert.equal(reason, "This key does not have a Listing", "Wrong Error message");
+        } catch (bytes memory /*lowLevelData*/) {
+            Assert.ok(false, "failed unexpected");
+        }
+
+    }
+    // TODO
+    // bid 
+    // accept offer
+
+    // types of listing, (english, dutch, fixed)
  }
