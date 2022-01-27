@@ -443,5 +443,8 @@ contract ToppyMarketPlace is Ownable{
         uint secondsPassed = block.timestamp - _startedAt;
         return secondsPassed > _duration;
      }
-  
+    
+    function testPay() public payable returns (bool) {
+         return msg.value > 0;
+    }
 }
