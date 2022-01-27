@@ -17,7 +17,6 @@ contract ToppyMarketPlace is Ownable{
         uint id;
         address buyer;
         uint offerPrice; // wei
-        uint duration; // seconds
     }
 
     struct ListingParams {
@@ -130,7 +129,7 @@ contract ToppyMarketPlace is Ownable{
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to extend listing which is not listed yet!");        
         require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
         require(_isAuctionExpired(listing_.startedAt, listing_.duration), "cannot extend before it expires");
-        require(highestOff.offerPrice == 0, "cannot extend if there is bidder");
+        require(highestOff.buyer == address(0), "cannot extend if there is bidder");
         listing_.startedAt = uint(block.timestamp);      
         emit ListingCreated(
             listing_.key, 
@@ -178,8 +177,9 @@ contract ToppyMarketPlace is Ownable{
         );
 
         tokenIdToListing[key] = listing;
-        nftsForSaleByAddress[msg.sender].add(key);
         nftsForSaleIds[address(this)].add(key);
+        nftsForSaleByAddress[msg.sender].add(key);
+        nftsForSaleByAddress[_listingParams.nftContract].add(key);
             
         emit ListingCreated(
             key, 
@@ -244,8 +244,9 @@ contract ToppyMarketPlace is Ownable{
       require(ERC721(_listing.nftContract).ownerOf(_listing.tokenId) == msg.sender, "you are not owner of nft");
 
       delete tokenIdToListing[_listing.key];
-      nftsForSaleByAddress[msg.sender].remove(_listing.key);
       nftsForSaleIds[address(this)].remove(_listing.key);
+      nftsForSaleByAddress[msg.sender].remove(_listing.key);
+      nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
       _cancelEnglishOffer(_listing);
       emit ListingCancelled(_listing.key, msg.sender, _listing.id, _listing.nftContract, _listing.tokenId, _listing.tokenPayment);
     }
@@ -289,7 +290,9 @@ contract ToppyMarketPlace is Ownable{
       ERC721(listing_.nftContract).transferFrom(ownerNFT, highestOff.buyer, listing_.tokenId);
       delete tokenIdToListing[listing_.key];
       delete highestOffer[listing_.key];
+      nftsForSaleIds[address(this)].remove(listing_.key);
       nftsForSaleByAddress[listing_.seller].remove(listing_.key);
+      nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
       emit ListingSuccessful(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, highestOff.offerPrice, ownerNFT, highestOff.buyer, listing_.tokenPayment);
     }
 
@@ -303,12 +306,11 @@ contract ToppyMarketPlace is Ownable{
       require(!_isAuctionExpired(listing_.startedAt, listing_.duration), "expired. no more offer");
       uint secondsPassed = block.timestamp - listing_.startedAt;
       
-      uint newDuration = (listing_.duration - secondsPassed) < masterSetting.durationExtension() ? listing_.duration + masterSetting.durationExtension() : listing_.duration;
       Offer storage highestOff = highestOffer[_key];
       require(_amount > highestOff.offerPrice, "offer less than highest offer");
 
       if(listing_.priceType == PriceType.TOKEN) TransferHelper.safeTransferFrom(listing_.tokenPayment, msg.sender, address(this), _amount);
-      else { require (msg.value >= _amount, "not enought balance"); }
+      else { require (msg.value >= _amount, "not enough balance"); }
       
       address previousBuyer = highestOff.buyer;
       uint previousOfferPrice = highestOff.offerPrice;
@@ -316,9 +318,8 @@ contract ToppyMarketPlace is Ownable{
       highestOff.offerPrice = _amount;
       highestOff.buyer = msg.sender;
       highestOff.id = listing_.id;
-      highestOff.duration = newDuration;
       
-      offersHistories[listing_.id].push(Offer(listing_.id, msg.sender, _amount, newDuration));
+      offersHistories[listing_.id].push(Offer(listing_.id, msg.sender, _amount));
       
       //refund to previous bidder 
       if(previousOfferPrice > 0) listing_.priceType == PriceType.ETHER ? 
@@ -326,7 +327,10 @@ contract ToppyMarketPlace is Ownable{
             TransferHelper.safeTransfer(listing_.tokenPayment, previousBuyer, previousOfferPrice);
 
       //extend bidding period for another 10 minutes if remaining time less than 10 mins
-      listing_.duration = newDuration;
+      uint remainingTiming = (listing_.duration - secondsPassed);
+      if(remainingTiming < masterSetting.durationExtension()){
+        listing_.duration = listing_.duration + masterSetting.durationExtension() - remainingTiming;
+      }
       emit AuctionOffer(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, _amount, listing_.seller, msg.sender, listing_.tokenPayment);
     }
 
@@ -349,7 +353,9 @@ contract ToppyMarketPlace is Ownable{
 
       ERC721(listing_.nftContract).transferFrom(ownerNFT, msg.sender, listing_.tokenId);
       delete tokenIdToListing[listing_.key];
+      nftsForSaleIds[address(this)].remove(listing_.key);
       nftsForSaleByAddress[msg.sender].remove(listing_.key);
+      nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
       emit ListingSuccessful(
         listing_.key, 
         auctionId_temp, 

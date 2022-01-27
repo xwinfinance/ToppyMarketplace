@@ -37,14 +37,14 @@ contract ToppyStandardNFT is ERC721Enumerable, Ownable {
     }
 
     function burn(uint256 tokenId) public {    
-        require(msg.sender == ownerOf(tokenId), "");
+        require(msg.sender == ownerOf(tokenId), "you are not owner");
         _burn(tokenId);
     }
 
     // public
     function mint(address _to, string memory _cid) public returns (uint){
         
-        require(eligibleMINTERS[msg.sender] == true, "not allow");
+        require(eligibleMINTERS[msg.sender] == true, "not allow to mint in this contract");
         require(!paused);
         _safeMint(_to, TOKENID);
         nftCID[TOKENID] = _cid;
@@ -88,7 +88,7 @@ contract ToppyStandardNFT is ERC721Enumerable, Ownable {
         baseFileName = _baseFileName;
     }
 
-    function pause(bool _state) public onlyOwner {
+    function setPause(bool _state) public onlyOwner {
         paused = _state;
     }
  
