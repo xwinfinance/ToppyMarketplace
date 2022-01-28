@@ -1,14 +1,14 @@
 //SPDX-License-Identifier: UNLICENSED
 
- pragma solidity ^0.8.0;
- import "remix_tests.sol"; // this import is automatically injected by Remix.
- import "remix_accounts.sol";
- import "../contracts/ToppyMarketplace.sol";
- import "../contracts/ToppyStandardNFT.sol";
+pragma solidity ^0.8.0;
+import "remix_tests.sol"; // this import is automatically injected by Remix.
+import "remix_accounts.sol";
+import "../contracts/ToppyMarketplace.sol";
+import "../contracts/ToppyStandardNFT.sol";
 
- // File name has to end with'_test.sol', this file can contain more than one testSuite contracts
- /// Inherit 'ToppyMysteriousNFT' contract
- contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNFT", "TTN", "ipfs://") {
+// File name has to end with'_test.sol', this file can contain more than one testSuite contracts
+/// Inherit 'ToppyMysteriousNFT' contract
+contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNFT", "TTN", "ipfs://") {
 
     // Variables used to emulate different accounts
     address acc0;
@@ -17,6 +17,7 @@
     address acc3;
     address acc4;
     bytes32 bidKey = _getId(address(this), 1);
+    bytes32 englishKey = _getId(address(this), 4);
 
     address _TsupportPayment;
     address _TtoppyMint;
@@ -49,7 +50,7 @@
         setEligibleMinters(acc2, true);
         setEligibleMinters(acc3, true);
         setEligibleMinters(acc4, true);
-        setPause(false);
+        pause(false);
     }
 
     constructor() ToppyMarketPlace(
@@ -82,7 +83,7 @@
         listingObj.nftContract = address(this);
         listingObj.tokenId = tokenId;
         listingObj.listingType = ListingType.Fix;
-        listingObj.listingPrice = 1;
+        listingObj.listingPrice = 100;
         listingObj.duration = 61;
         listingObj.priceType = PriceType.ETHER;
 
@@ -91,30 +92,47 @@
 
         Assert.equal(listingId, 0, "listing id not 0");
         // add listing
+        ERC721.approve(address(this), tokenId);
         createListing(listingObj);
-
         // get listing
         Listing memory testListing = getListingByNFTKey(testKey);
-    
+
         // check
         Assert.equal(testListing.id, 0, "listing id not 0");
         Assert.equal(testListing.tokenId, 1, "token id not 1");
         Assert.equal(testListing.seller, acc0, "listing owner mismatch");
-        Assert.equal(isAuctionExpired(testKey), false, "Auction expired");
-
+        Assert.equal(testListing.nftContract, address(this), "listing contract address mismatch");
+        Assert.equal(uint(testListing.listingType), 0, "listing type mismatch");
+        Assert.equal(testListing.listingPrice, 100, "listing price mismatch");
+        Assert.equal(testListing.duration, 61, "listing duration mismatch");
+        Assert.equal(uint(testListing.priceType), 0, "listing price type mismatch");
+        Assert.equal(isAuctionExpired(testKey), false, "listing expired");
     }
 
-    /// #value: 1000000000000000000
+    /// #value: 100
     /// #sender: account-1
-    function buyListing() public {
-        Assert.ok(testPay(), "Failed");
+    function buyListing() public payable{
+        Assert.equal(totalListed(), 1, "total NFTs listed in the marketplace should be 1");
+        // purchase the Fix listing
+        bid(bidKey);
+        Assert.equal(totalListed(), 0, "total NFTs listed in the marketplace should be 0 after bid");
+
+        // listing should no longer exist
+        try this.getListingByNFTKey(bidKey) {
+            Assert.ok(false, "get listing after successful bid should fail");
+        } catch Error(string memory reason) {
+            // Compare failure reason, check if it is as expected
+            Assert.equal(reason, "This key does not have a Listing", "Wrong Error message");
+        } catch (bytes memory /*lowLevelData*/) {
+            Assert.ok(false, "failed without reason");
+        }
     }
 
     /// #sender: account-0
     function addAndRemoveListing() public {
         // mint nft
         uint tokenId = mint(acc0, "testcid");
-        Assert.equal(tokenId, 2,"impossible");
+        Assert.equal(tokenId, 2,"NFT token id unexpected");
 
         // create listing object
         ListingParams memory listingObj;
@@ -134,7 +152,7 @@
 
         // get listing
         Listing memory testListing = getListingByNFTKey(testKey);
-    
+
         // check
         Assert.equal(testListing.id, 1, "listing id not 1");
         Assert.equal(testListing.tokenId, 2, "token id not 2");
@@ -143,7 +161,7 @@
 
         // cancel listing
         cancelListingByKey(testKey);
-        
+
         // check if deleted
         try this.getListingByNFTKey(testKey) {
             Assert.ok(false, "method execution should fail");
@@ -151,13 +169,116 @@
             // Compare failure reason, check if it is as expected
             Assert.equal(reason, "This key does not have a Listing", "Wrong Error message");
         } catch (bytes memory /*lowLevelData*/) {
-            Assert.ok(false, "failed unexpected");
+            Assert.ok(false, "failed without reason");
+        }
+    }
+
+    /// #sender: account-0
+    function addDutchAndEnglishListing() public {
+        // mint nft
+        uint tokenId = mint(acc0, "testcidDutch");
+        uint tokenId2 = mint(acc0, "testcidEnglish");
+        Assert.equal(tokenId, 3, "NFT token id unexpected");
+        Assert.equal(tokenId2, 4, "NFT token id unexpected");
+
+        // create listing object
+        ListingParams memory listingObj;
+        listingObj.nftContract = address(this);
+        listingObj.tokenId = tokenId;
+        listingObj.listingType = ListingType.Dutch;
+        listingObj.listingPrice = 100;
+        listingObj.endingPrice = 10;
+        listingObj.duration = 600;
+        listingObj.priceType = PriceType.ETHER;
+
+        ListingParams memory listingObj2;
+        listingObj2.nftContract = address(this);
+        listingObj2.tokenId = tokenId2;
+        listingObj2.listingType = ListingType.English;
+        listingObj2.listingPrice = 100;
+        listingObj2.duration = 600;
+        listingObj2.priceType = PriceType.ETHER;
+
+        Assert.equal(totalListed(), 0, "total listed not 0");
+        Assert.equal(totalListedByOwner(acc0), 0, "total listed by acc0 not 0");
+        // add listing
+        ERC721.approve(address(this), tokenId);
+        ERC721.approve(address(this), tokenId2);
+        createListing(listingObj);
+        createListing(listingObj2);
+
+        Assert.equal(totalListed(), 2, "total listed not 2");
+        Assert.equal(totalListedByOwner(acc0), 2, "total listed by acc0 not 2");
+    }
+
+    /// #value: 10
+    /// #sender: account-1
+    function offerEnglishFail() public payable {
+
+        try this.offer{value: 10}(englishKey, 10) {
+            Assert.ok(false, "offer lower than starting should fail");
+        } catch Error(string memory reason) {
+            // Compare failure reason, check if it is as expected
+            Assert.equal(reason, "Offer less than starting price", "Wrong Error message");
+        } catch (bytes memory /*lowLevelData*/) {
+            Assert.ok(false, "failed without reason");
         }
 
     }
-    // TODO
-    // bid 
-    // accept offer
 
-    // types of listing, (english, dutch, fixed)
- }
+    /// #value: 1000000000000
+    /// #sender: account-1
+    function offerEnglish() public payable {
+        Offer memory highest = highestOffer[englishKey];
+
+        Assert.equal(highest.offerPrice, 0, "highest offer should be empty");
+        offer(englishKey, 1000000000000);
+
+        highest = highestOffer[englishKey];
+        Assert.equal(highest.buyer, acc1, "highest offer should be acc1");
+        Assert.equal(highest.offerPrice, 1000000000000, "highest offer should be 1000000000000");
+
+    }
+
+    /// #value: 2000000000000
+    /// #sender: account-2
+    function offerEnglishHigher() public payable {
+        Offer memory highest = highestOffer[englishKey];
+
+        Assert.equal(highest.offerPrice, 1000000000000, "highest offer should be 1000000000000");
+        Assert.equal(highest.buyer, acc1, "highest offer should be acc1");
+        offer(englishKey, 2000000000000);
+
+        highest = highestOffer[englishKey];
+        Assert.equal(highest.buyer, acc2, "highest offer should be empty");
+        Assert.equal(highest.offerPrice, 2000000000000, "highest offer should be empty");
+    }
+
+    /// #sender: account-1
+    function refundWithdraw() public {
+        Offer[] memory offerArray = getPendingWithdraws(acc1);
+        Assert.equal(offerArray.length, 1, "array length not 1");
+        Assert.equal(offerArray[0].buyer, acc1, "buyer mismatch");
+        Assert.equal(offerArray[0].offerPrice, 1000000000000, "offer price mismatch with offer");
+        uint256 beforeWithdraw = acc1.balance;
+        withdrawRefunds();
+        Assert.greaterThan(acc1.balance, beforeWithdraw + 899999999999 , "all value should return");
+    }
+
+    /// #value: 100
+    /// #sender: account-1
+    function offerEnglishFail2() public payable {
+        try this.offer{value : 1000000000}(englishKey, 1000000000) {
+            Assert.ok(false, "offer lower than starting should fail");
+        } catch Error(string memory reason) {
+            // Compare failure reason, check if it is as expected
+            Assert.equal(reason, "Offer less than highest offer", "Wrong Error message");
+        } catch (bytes memory /*lowLevelData*/) {
+            Assert.ok(false, "failed without reason");
+        }
+    }
+
+    // TODO :
+    // test dutch?
+    // test miscellaneous functions
+}
