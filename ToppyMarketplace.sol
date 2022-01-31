@@ -19,6 +19,7 @@ contract ToppyMarketPlace is Ownable{
         address buyer;
         address tokenPayment;
         PriceType priceType;
+        uint bidAt; // time
     }
 
     struct ListingParams {
@@ -54,7 +55,6 @@ contract ToppyMarketPlace is Ownable{
     address public adminExecutor;  //admin executor for accepting the english auction offer     
     uint public listingId = 0; // max is 18446744073709551615
 
-    mapping (uint => Offer[]) public offersHistories;
     mapping (bytes32 => Offer) public highestOffer;
     mapping (bytes32 => Listing) internal tokenIdToListing;
     mapping (address => EnumerableSet.Bytes32Set) private nftsForSaleByAddress;
@@ -103,10 +103,6 @@ contract ToppyMarketPlace is Ownable{
         masterSetting = ToppyMaster(_masterSetting);
         toppyMint = ToppyMint(_toppyMint);
         adminExecutor = _adminExecutor;
-    }
-
-    function getOffersHistories(uint _listingId) public view returns (Offer[] memory) {
-        return  offersHistories[_listingId];
     }
 
     function totalListed() public view returns (uint) {
@@ -322,8 +318,8 @@ contract ToppyMarketPlace is Ownable{
         newHighest.key = listing_.key;
         newHighest.priceType = listing_.priceType;
         newHighest.tokenPayment = listing_.tokenPayment;
+        newHighest.bidAt = uint(block.timestamp);
 
-        offersHistories[listing_.id].push(newHighest);
         highestOffer[_key] = newHighest;
 
         // set up pending withdraw for refund
@@ -334,7 +330,7 @@ contract ToppyMarketPlace is Ownable{
         // extend bidding period for another 10 minutes if remaining time less than 10 mins
         uint remainingTiming = (listing_.duration - secondsPassed);
         if (remainingTiming < masterSetting.durationExtension()) {
-            listing_.duration = listing_.duration + masterSetting.durationExtension() - remainingTiming;
+            tokenIdToListing[_key].duration = listing_.duration + masterSetting.durationExtension() - remainingTiming;
         }
 
         emit AuctionOffer(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, _amount, listing_.seller, msg.sender, listing_.tokenPayment);
@@ -447,8 +443,8 @@ contract ToppyMarketPlace is Ownable{
         return secondsPassed > _duration;
     }
 
-    function getPendingWithdraws(address user1) public view returns (Offer[] memory) {
-        return pendingWithdrawals[user1];
+    function getPendingWithdraws(address _user) public view returns (Offer[] memory) {
+        return pendingWithdrawals[_user];
     }
 
     // Not sure if should implement like this or use msg.sender instead

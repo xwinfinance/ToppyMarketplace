@@ -56,14 +56,14 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   address public creatorAddress = address(0);
   address public managerAddress = address(0);
   address public tokenPayment = address(0);
-
+  ToppyMint public toppyMint;
+  
   uint256 public maxSupply = 100;
   uint256 public maxMintAmount = 10;
   bool public paused = false;
   mapping(address => bool) public whitelisted;
   mapping(uint => bool) public revealNFT;
   PriceType public priceType = PriceType.ETHER;
-  ToppyMint toppyMint = ToppyMint(address(0x762AdB198269b856D403B9B1dc3bB7dACEa9fD0C));
     
   event Received(address, uint);
     
@@ -75,7 +75,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     uint _maxSupply,
     address _platformAddress,
     address _creatorAddress,
-    address _managerAddress
+    address _managerAddress,
+    address _toppyMint
   ) ERC721(_name, _symbol) {
     setBaseURI(_initBaseURI);
     setNotRevealedURI(_initNotRevealedUri);
@@ -83,6 +84,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
+    toppyMint = ToppyMint(_toppyMint);
   }
 
   // internal
@@ -115,7 +117,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
       revealNFT[_tokenId] = false;
       bytes32 key = _getId(address(this), _tokenId);
       toppyMint.setCreator(creatorAddress, _tokenId, address(this));
-      emit Minted(key, msg.sender, address(0), _tokenId, "");
+      emit Minted(key, msg.sender, address(this), _tokenId, "");
     }
     //make payment
     _payFee(totalAmount);
@@ -193,10 +195,11 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     maxSupply = _maxSupply;
   }
 
-  function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress) public onlyOwner {
+  function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress, address _toppyMint) public onlyOwner {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
+    toppyMint = ToppyMint(_toppyMint);
   }
 
   function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
