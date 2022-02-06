@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./ToppyMint.sol";
 import "./TransferHelper.sol";
 import "./IBEP20.sol";
 
@@ -56,15 +55,15 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   address public creatorAddress = address(0);
   address public managerAddress = address(0);
   address public tokenPayment = address(0);
-  ToppyMint public toppyMint;
   
   uint256 public maxSupply = 100;
-  uint256 public maxMintAmount = 10;
+  uint256 public maxMintAmount = 5;
   bool public paused = false;
   mapping(address => bool) public whitelisted;
   mapping(uint => bool) public revealNFT;
   PriceType public priceType = PriceType.ETHER;
-    
+  mapping (address => bool) public eligibleMINTERS;
+  
   event Received(address, uint);
     
   constructor(
@@ -75,8 +74,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     uint _maxSupply,
     address _platformAddress,
     address _creatorAddress,
-    address _managerAddress,
-    address _toppyMint
+    address _managerAddress
   ) ERC721(_name, _symbol) {
     setBaseURI(_initBaseURI);
     setNotRevealedURI(_initNotRevealedUri);
@@ -84,7 +82,6 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
-    toppyMint = ToppyMint(_toppyMint);
   }
 
   // internal
@@ -92,36 +89,30 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     return baseURI;
   }
 
-  // public
-  function mint(address _to, uint256 _mintAmount) public payable {
+  function setEligibleMinters(address _minter, bool _eligible) public onlyOwner {
+        eligibleMINTERS[_minter] = _eligible;
+    }
+    
+
+  function validateInput(uint256 _mintAmount) public view returns (bool) 
+  {
     uint256 supply = totalSupply();
     require(!paused, "temporary out of service");
     require(_mintAmount > 0, "must be greater than 0");
     require(_mintAmount <= maxMintAmount, "cannot mint more than setting at single time");
     require(supply + _mintAmount <= maxSupply, "cannot mint more than maxsupply");
-
-    uint totalAmount = cost * _mintAmount;
-    
-    if(whitelisted[msg.sender] != true) {
-      if(priceType == PriceType.ETHER){
-        require(msg.value >= totalAmount);
-      }else{
-        require(IBEP20(tokenPayment).balanceOf(msg.sender) >= totalAmount, "Not enough balance");
-        TransferHelper.safeTransferFrom(tokenPayment, msg.sender, address(this), totalAmount);
-      }
-    }
-  
-    for (uint256 i = 1; i <= _mintAmount; i++) {
-      uint _tokenId = supply + i;
-      _safeMint(_to, _tokenId);
-      revealNFT[_tokenId] = false;
-      bytes32 key = _getId(address(this), _tokenId);
-      toppyMint.setCreator(creatorAddress, _tokenId, address(this));
-      emit Minted(key, msg.sender, address(this), _tokenId, "");
-    }
-    //make payment
-    _payFee(totalAmount);
+    return true;
   }
+
+  function mint(address _to) public returns (uint tokenId){
+
+      require(eligibleMINTERS[msg.sender] == true, "not allow to mint in this contract");
+      uint supply = totalSupply();
+      tokenId = supply + 1;
+      _safeMint(_to, tokenId);
+      revealNFT[tokenId] = false;
+      return tokenId;
+  } 
 
   function _getId(address _contract, uint _tokenId) internal pure returns(bytes32) {
     bytes32 bAddress = bytes32(uint256(uint160(_contract)));
@@ -132,6 +123,11 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   function getProperties() public view returns (
     string memory, string memory, uint, uint, uint, string memory){
     return (symbol(), name(), totalSupply(), maxSupply, cost, rarityURI);
+  }
+
+  function getPriceType() public view returns (uint8){
+    if(priceType == PriceType.ETHER) return 0;
+    else return 1;
   }
 
   function walletOfOwner(address _owner) public view returns (uint256[] memory){
@@ -195,11 +191,10 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
     maxSupply = _maxSupply;
   }
 
-  function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress, address _toppyMint) public onlyOwner {
+  function setAddressProperties(address _platformAddress, address _managerAddress, address _creatorAddress) public onlyOwner {
     platformAddress = _platformAddress;
     creatorAddress = _creatorAddress;
     managerAddress = _managerAddress;
-    toppyMint = ToppyMint(_toppyMint);
   }
 
   function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
@@ -224,40 +219,5 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
 
   function pause(bool _state) public onlyOwner {
     paused = _state;
-  }
- 
- function whitelistUser(address _user) public onlyOwner {
-    whitelisted[_user] = true;
-  }
- 
-  function removeWhitelistUser(address _user) public onlyOwner {
-    whitelisted[_user] = false;
-  }
-
-  function withdrawAll() public onlyOwner {
-
-    uint totalAmount = 0;
-    if (priceType == PriceType.ETHER) totalAmount = address(this).balance;
-    else totalAmount = IBEP20(tokenPayment).balanceOf(address(this));
-    
-    require(totalAmount > 0, "no balance to withdraw");
-    _payFee(totalAmount);
-  }
-
-  function _payFee(uint totalAmount) internal {
-
-    uint creatorFee = totalAmount * creatorComm / 10000;
-    uint platformFee = totalAmount * platformComm / 10000;
-    uint managerFee = totalAmount * managerComm / 10000;
-
-    if (priceType == PriceType.ETHER) {
-      TransferHelper.safeTransferBNB(creatorAddress, creatorFee);
-      TransferHelper.safeTransferBNB(platformAddress, platformFee);
-      TransferHelper.safeTransferBNB(managerAddress, managerFee);
-    }else{
-      TransferHelper.safeTransfer(tokenPayment, creatorAddress, creatorFee);
-      TransferHelper.safeTransfer(tokenPayment, platformAddress, platformFee);
-      TransferHelper.safeTransfer(tokenPayment, managerAddress, managerFee);
-    }
   }
 }

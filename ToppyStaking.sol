@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./ToppyMysteriousNFT.sol";
 import "./ToppyMint.sol";
 import "./ToppyMasterSetting.sol";
 import "./BEP20.sol";
@@ -49,7 +48,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     }
 
     ToppyMaster toppyMaster = ToppyMaster(address(0x00b62376D5B2FA1EC07C326CAd3EC7F9AA633972));
-    ToppyMint toppyMint = ToppyMint(address(0x762AdB198269b856D403B9B1dc3bB7dACEa9fD0C));
+    ToppyMint toppyMint = ToppyMint(address(0x9C44C1b9567261DAe866624719b0Cd2d26241A42));
     address public rewardsToken = address(0xa83575490D7df4E2F47b7D38ef351a2722cA45b9);
     address public burnAddress = address(0x000000000000000000000000000000000000dEaD);
     xWinDefi public _xwinDefi = xWinDefi(address(0xebAee150352ba99FcA309C9D57E14DC77736470e));
@@ -61,7 +60,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     uint public totalAllocPoint = 0;
     uint public startBlock;
     uint public BONUS_MULTIPLIER = 1;
-    uint public DEFAULT_SCORE = 0;
+    uint public DEFAULT_SCORE = 1e18;
     uint public xwinpid;
 
     /// @notice mapping of a nft token to its current properties
@@ -86,6 +85,16 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     )  BEP20(name, symbol) {
         
         startBlock = block.number;
+        _mint(address(this), 1 * 10 ** 18);
+    }
+
+    function farmTokenByAdmin() public onlyOwner {
+        TransferHelper.safeApprove(address(this), address(_xwinDefi), totalSupply()); 
+        _xwinDefi.DepositFarm(xwinpid, totalSupply());
+    } 
+
+    function unFarmTokenByAdmin() public onlyOwner {
+        _xwinDefi.WithdrawFarm(xwinpid, totalSupply());
     }
 
     // initial properties needed by admin 
@@ -130,6 +139,10 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         _stopPool(_pid);
     }
 
+    function updateDefaultScore(uint _default) public onlyOwner {
+        DEFAULT_SCORE = _default;
+    }
+
     function _stopPool(uint _pid) internal {
         
         uint prevAllocPoint = poolInfo[_pid].allocPoint;
@@ -137,8 +150,8 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         poolInfo[_pid].endPeriod = block.number;
         poolInfo[_pid].lastRewardBlock = block.number;
         totalAllocPoint = totalAllocPoint.sub(prevAllocPoint);
-        _xwinDefi.WithdrawFarm(xwinpid, poolInfo[_pid].totalStakedBalance);
-        _burn(address(this), poolInfo[_pid].totalStakedBalance);
+        // _xwinDefi.WithdrawFarm(xwinpid, poolInfo[_pid].totalStakedBalance);
+        // _burn(address(this), poolInfo[_pid].totalStakedBalance);
         //poolInfo[_pid].totalStakedBalance = 0;
     }
 
@@ -268,9 +281,9 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         user.tokenStakedAmount[_tokenId] = amount;
 
         /// start farming in xwin
-        _mint(address(this), amount);
-        TransferHelper.safeApprove(address(this), address(_xwinDefi), amount); 
-        _xwinDefi.DepositFarm(xwinpid, amount);
+        // _mint(address(this), amount);
+        // TransferHelper.safeApprove(address(this), address(_xwinDefi), amount); 
+        // _xwinDefi.DepositFarm(xwinpid, amount);
         
         emit Staked(_user, _pid, amount, _tokenId);
     }
