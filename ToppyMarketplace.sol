@@ -146,11 +146,26 @@ contract ToppyMarketPlace is Ownable{
             );
     }
 
-
-    function createListing(
-        ListingParams memory _listingParams) public {
-        
+    function createBulkListing(
+        ListingParams memory _listingParams,
+        uint [] calldata tokenIds) public {
+    
         // check storage requirements
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
+        require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
+        require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
+        if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
+        if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
+
+        for (uint i = 0; i < tokenIds.length; i++) {
+            require(ERC721(_listingParams.nftContract).ownerOf(tokenIds[i]) == msg.sender, "you are not owner of nft");
+            _createListing(_listingParams, tokenIds[i]);
+        } 
+    }
+
+    function createListing(ListingParams memory _listingParams) public {
+        
         require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
         require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
         require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
@@ -160,14 +175,18 @@ contract ToppyMarketPlace is Ownable{
         if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
         if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
 
-        bytes32 key = _getId(_listingParams.nftContract, _listingParams.tokenId);
+        _createListing(_listingParams, _listingParams.tokenId);
+    }
 
+    function _createListing(ListingParams memory _listingParams, uint _tokenId) internal {
+
+        bytes32 key = _getId(_listingParams.nftContract, _tokenId);
         Listing memory listing = Listing(
             key,
             _listingParams.listingType,
             uint(listingId),
             msg.sender,
-            uint(_listingParams.tokenId),
+            _tokenId,
             uint(_listingParams.listingPrice),
             uint(_listingParams.endingPrice),
             uint(_listingParams.duration),
@@ -187,7 +206,7 @@ contract ToppyMarketPlace is Ownable{
             msg.sender, 
             listingId, 
             _listingParams.nftContract, 
-            _listingParams.tokenId, 
+            _tokenId, 
             _listingParams.listingType, 
             _listingParams.listingPrice, 
             _listingParams.endingPrice, 
@@ -195,7 +214,6 @@ contract ToppyMarketPlace is Ownable{
             _listingParams.tokenPayment
             );
   
-        //ERC721(listing_.nftContract).transferFrom(address(this), msg.sender, listing_.tokenId);
         listingId++;
     }
 
