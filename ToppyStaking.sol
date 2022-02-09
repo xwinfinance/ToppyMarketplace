@@ -33,8 +33,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     struct UserInfo {
         uint amount;
         uint rewardDebt;
-        mapping (uint => uint) tokenStakedAmount;
-         
     }
 
     // Info of each pool.
@@ -150,9 +148,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         poolInfo[_pid].endPeriod = block.number;
         poolInfo[_pid].lastRewardBlock = block.number;
         totalAllocPoint = totalAllocPoint.sub(prevAllocPoint);
-        // _xwinDefi.WithdrawFarm(xwinpid, poolInfo[_pid].totalStakedBalance);
-        // _burn(address(this), poolInfo[_pid].totalStakedBalance);
-        //poolInfo[_pid].totalStakedBalance = 0;
     }
 
     // Add a new lp to the pool. Can only be called by the owner.
@@ -278,12 +273,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         user.amount = user.amount.add(amount);
         user.rewardDebt = user.amount.mul(pool.accCakePerShare).div(1e18);
         pool.totalStakedBalance = pool.totalStakedBalance.add(amount); //update total staked amount by pool basis
-        user.tokenStakedAmount[_tokenId] = amount;
-
-        /// start farming in xwin
-        // _mint(address(this), amount);
-        // TransferHelper.safeApprove(address(this), address(_xwinDefi), amount); 
-        // _xwinDefi.DepositFarm(xwinpid, amount);
         
         emit Staked(_user, _pid, amount, _tokenId);
     }
