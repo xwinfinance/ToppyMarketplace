@@ -79,7 +79,7 @@ contract ToppyMarketPlace is Ownable{
     event ListingCreated(bytes32 key, address from, uint listingId, address nftContract, uint tokenId, ListingType listingType, uint256 startingPrice, uint256 endingPrice, uint256 duration, address tokenPayment);
     event ListingCancelled(bytes32 key, address from, uint listingId, address nftContract, uint tokenId, address tokenPayment);
     event ListingSuccessful(bytes32 key, uint listingId, address nftContract, uint tokenId, uint256 totalPrice, address owner, address buyer, address tokenPayment);
-    event AuctionOffer(bytes32 key, uint listingId, address nftContract, uint256 tokenId, uint256 totalPrice, address owner, address offeror, address tokenPayment);
+    event AuctionOffer(bytes32 key, uint listingId, address nftContract, uint256 tokenId, uint256 totalPrice, address owner, address offeror, address previousBidder, address tokenPayment);
 
     constructor(
         address _supportPayment,
@@ -351,7 +351,7 @@ contract ToppyMarketPlace is Ownable{
             tokenIdToListing[_key].duration = listing_.duration + masterSetting.durationExtension() - remainingTiming;
         }
 
-        emit AuctionOffer(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, _amount, listing_.seller, msg.sender, listing_.tokenPayment);
+        emit AuctionOffer(listing_.key, listing_.id, listing_.nftContract, listing_.tokenId, _amount, listing_.seller, msg.sender, prevOffer.buyer, listing_.tokenPayment);
     }
 
     /// Used by Fix price and Auction price Buy/Bid

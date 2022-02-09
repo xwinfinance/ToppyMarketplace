@@ -201,6 +201,7 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
 
         Assert.equal(totalListed(), 0, "total listed not 0");
         Assert.equal(totalListedByOwner(acc0), 0, "total listed by acc0 not 0");
+
         // add listing
         ERC721.approve(address(this), tokenId);
         ERC721.approve(address(this), tokenId2);
@@ -263,6 +264,10 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
         uint256 beforeWithdraw = acc1.balance;
         withdrawRefunds();
         Assert.greaterThan(acc1.balance, beforeWithdraw + 899999999999 , "all value should return");
+
+        // Check if its deleted
+        offerArray = getPendingWithdraws(acc1);
+        Assert.equal(offerArray.length, 0, "array not empty");
     }
 
     /// #value: 100
@@ -277,8 +282,81 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
             Assert.ok(false, "failed without reason");
         }
     }
+    
+    /// #sender: account-0
+    function addBulk() public {
+        // mint nft
+        uint tokenId1 = mint(acc0, "bulk1");
+        uint tokenId2 = mint(acc0, "bulk2");
+        uint tokenId3 = mint(acc0, "bulk3");
+        Assert.equal(tokenId1, 5, "NFT token id unexpected");
+        Assert.equal(tokenId2, 6, "NFT token id unexpected");
+        Assert.equal(tokenId3, 7, "NFT token id unexpected");
 
-    // TODO :
-    // test dutch?
-    // test miscellaneous functions
+        // create listing object
+        ListingParams memory listingObj;
+        listingObj.nftContract = address(this);
+        listingObj.listingType = ListingType.Fix;
+        listingObj.listingPrice = 100;
+        listingObj.duration = 600;
+        listingObj.priceType = PriceType.ETHER;
+
+        // create token id array
+        uint[] memory idArr = new uint[](3);
+        idArr[0] = tokenId1;
+        idArr[1] = tokenId2;
+        idArr[2] = tokenId3;
+
+
+        Assert.equal(totalListed(), 2, "total listed not 2");
+        Assert.equal(totalListedByOwner(acc0), 2, "total listed by acc0 not 2");
+        // add listing
+        ERC721.approve(address(this), tokenId1);
+        ERC721.approve(address(this), tokenId2);
+        ERC721.approve(address(this), tokenId3);
+        createBulkListing(listingObj, idArr);
+
+        Assert.equal(totalListed(), 5, "total listed not 5");
+        Assert.equal(totalListedByOwner(acc0), 5, "total listed by acc0 not 5");
+    }
+    // /// #sender: account-0
+    // function getListingsTest() public {
+    //     Listing[] memory lArr = getListings(0, 5);
+    //     Listing[] memory lArr2 = getListingsBySeller(acc0, 0, 5);
+
+    //     Assert.equal(lArr.length, 5, "length not 5");
+    //     Assert.equal(lArr2.length, 5, "2nd length not 5");
+    //     Assert.equal(lArr[0].key, _getId(address(this), 3), "Key Mismatch 1");
+    //     Assert.equal(lArr[1].key, _getId(address(this), 4), "Key Mismatch 2");
+    //     Assert.equal(lArr[2].key, _getId(address(this), 5), "Key Mismatch 3");
+    //     Assert.equal(lArr[3].key, _getId(address(this), 6), "Key Mismatch 4");
+    //     Assert.equal(lArr[4].key, _getId(address(this), 7), "Key Mismatch 5");
+    //     Assert.equal(lArr2[0].key, _getId(address(this), 3), "2nd Key Mismatch 1");
+    //     Assert.equal(lArr2[1].key, _getId(address(this), 4), "2nd Key Mismatch 2");
+    //     Assert.equal(lArr2[2].key, _getId(address(this), 5), "2nd Key Mismatch 3");
+    //     Assert.equal(lArr2[3].key, _getId(address(this), 6), "2nd Key Mismatch 4");
+    //     Assert.equal(lArr2[4].key, _getId(address(this), 7), "2nd Key Mismatch 5");
+    // }
+
+    // /// #sender: account-0
+    // function getListingsTestShuffle() public {
+    //     // cancelListingByKey(_getId(address(this), 5));
+
+    //     // Listing[] memory lArr3 = getListings(0, 4);
+    //     // Assert.equal(lArr.length, 5, "length not 4");
+    //     // Assert.equal(lArr3[0].key, _getId(address(this), 3), "3rd Key Mismatch 1");
+    //     // Assert.equal(lArr3[1].key, _getId(address(this), 4), "3rd Key Mismatch 2");
+    //     // Assert.equal(lArr3[2].key, _getId(address(this), 7), "3rd Key Mismatch 3");
+    //     // Assert.equal(lArr3[3].key, _getId(address(this), 6), "3rd Key Mismatch 4");
+    //     cancelListingByKey(_getId(address(this), 3));
+    //     Listing[] memory lArr3 = getListings(0, 3);
+    //     Assert.equal(lArr3.length, 4, "length not 4");
+    //     Assert.equal(lArr3[0].key, _getId(address(this), 7), "3rd Key Mismatch 1");
+    //     Assert.equal(lArr3[1].key, _getId(address(this), 4), "3rd Key Mismatch 2");
+    //     Assert.equal(lArr3[2].key, _getId(address(this), 5), "3rd Key Mismatch 3");
+    //     Assert.equal(lArr3[3].key, _getId(address(this), 6), "3rd Key Mismatch 4");
+    // }
+
+
+
 }
