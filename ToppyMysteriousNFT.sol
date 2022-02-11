@@ -65,7 +65,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   mapping (address => bool) public eligibleMINTERS;
   
   event Received(address, uint);
-    
+  event Reveal(bytes32 key, uint256 tokenId, address nftContract, address owner);
+  
   constructor(
     string memory _name,
     string memory _symbol,
@@ -164,6 +165,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
       require(ownerOf(tokenId) == msg.sender, "you are not owner of nft");
       require(revealNFT[tokenId] == false, "already been revealed");
       revealNFT[tokenId] = true;
+      bytes32 key = _getId(address(this), tokenId);
+      emit Reveal(key, tokenId, address(this), msg.sender);      
   }
 
   //only nft owner
@@ -171,6 +174,8 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
       for(uint i=0; i < tokenIds.length; i++){
         if(_exists(tokenIds[i]) && ownerOf(tokenIds[i]) == msg.sender && revealNFT[tokenIds[i]] == false){
           revealNFT[tokenIds[i]] = true;
+          bytes32 key = _getId(address(this), tokenIds[i]);
+          emit Reveal(key, tokenIds[i], address(this), msg.sender);
         }
       }
   }
