@@ -5,6 +5,7 @@ import "remix_tests.sol"; // this import is automatically injected by Remix.
 import "remix_accounts.sol";
 import "../contracts/ToppyMarketplace.sol";
 import "../contracts/ToppyStandardNFT.sol";
+import "../contracts/ToppyMint.sol";
 
 // File name has to end with'_test.sol', this file can contain more than one testSuite contracts
 /// Inherit 'ToppyMysteriousNFT' contract
@@ -319,44 +320,4 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
         Assert.equal(totalListed(), 5, "total listed not 5");
         Assert.equal(totalListedByOwner(acc0), 5, "total listed by acc0 not 5");
     }
-    // /// #sender: account-0
-    // function getListingsTest() public {
-    //     Listing[] memory lArr = getListings(0, 5);
-    //     Listing[] memory lArr2 = getListingsBySeller(acc0, 0, 5);
-
-    //     Assert.equal(lArr.length, 5, "length not 5");
-    //     Assert.equal(lArr2.length, 5, "2nd length not 5");
-    //     Assert.equal(lArr[0].key, _getId(address(this), 3), "Key Mismatch 1");
-    //     Assert.equal(lArr[1].key, _getId(address(this), 4), "Key Mismatch 2");
-    //     Assert.equal(lArr[2].key, _getId(address(this), 5), "Key Mismatch 3");
-    //     Assert.equal(lArr[3].key, _getId(address(this), 6), "Key Mismatch 4");
-    //     Assert.equal(lArr[4].key, _getId(address(this), 7), "Key Mismatch 5");
-    //     Assert.equal(lArr2[0].key, _getId(address(this), 3), "2nd Key Mismatch 1");
-    //     Assert.equal(lArr2[1].key, _getId(address(this), 4), "2nd Key Mismatch 2");
-    //     Assert.equal(lArr2[2].key, _getId(address(this), 5), "2nd Key Mismatch 3");
-    //     Assert.equal(lArr2[3].key, _getId(address(this), 6), "2nd Key Mismatch 4");
-    //     Assert.equal(lArr2[4].key, _getId(address(this), 7), "2nd Key Mismatch 5");
-    // }
-
-    // /// #sender: account-0
-    // function getListingsTestShuffle() public {
-    //     // cancelListingByKey(_getId(address(this), 5));
-
-    //     // Listing[] memory lArr3 = getListings(0, 4);
-    //     // Assert.equal(lArr.length, 5, "length not 4");
-    //     // Assert.equal(lArr3[0].key, _getId(address(this), 3), "3rd Key Mismatch 1");
-    //     // Assert.equal(lArr3[1].key, _getId(address(this), 4), "3rd Key Mismatch 2");
-    //     // Assert.equal(lArr3[2].key, _getId(address(this), 7), "3rd Key Mismatch 3");
-    //     // Assert.equal(lArr3[3].key, _getId(address(this), 6), "3rd Key Mismatch 4");
-    //     cancelListingByKey(_getId(address(this), 3));
-    //     Listing[] memory lArr3 = getListings(0, 3);
-    //     Assert.equal(lArr3.length, 4, "length not 4");
-    //     Assert.equal(lArr3[0].key, _getId(address(this), 7), "3rd Key Mismatch 1");
-    //     Assert.equal(lArr3[1].key, _getId(address(this), 4), "3rd Key Mismatch 2");
-    //     Assert.equal(lArr3[2].key, _getId(address(this), 5), "3rd Key Mismatch 3");
-    //     Assert.equal(lArr3[3].key, _getId(address(this), 6), "3rd Key Mismatch 4");
-    // }
-
-
-
 }

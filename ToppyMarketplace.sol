@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./ToppyMasterSetting.sol";
-import "./ToppyMint.sol";
+import "./IToppyMint.sol";
 import "./TransferHelper.sol";
 import "./ToppySupportPayment.sol";
 
@@ -43,17 +44,18 @@ contract ToppyMarketPlace is Ownable{
         uint listingPrice; // wei
         uint endingPrice; // wei
         uint duration; // seconds
-        uint startedAt; // time
+        uint startedAt; // block number
         address tokenPayment;
         PriceType priceType;
         address nftContract;
     }
   
-    ToppyMint public toppyMint;
+    address public toppyMint;
     ToppySupportPayment public supportPayment;// = SupportedPayment(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
     ToppyMaster public masterSetting;// = MasterSetting(address(0xFb0D4DC54231a4D9A1780a8D85100347E6B6C41c));
     address public adminExecutor;  //admin executor for accepting the english auction offer     
     uint public listingId = 0; // max is 18446744073709551615
+    uint private interBlockTime = 3; // average time between blocks (3s for BSC)
 
     mapping (bytes32 => Offer) public highestOffer;
     mapping (bytes32 => Listing) internal tokenIdToListing;
@@ -89,7 +91,7 @@ contract ToppyMarketPlace is Ownable{
         ) {
         supportPayment = ToppySupportPayment(_supportPayment);
         masterSetting = ToppyMaster(_masterSetting);
-        toppyMint = ToppyMint(_toppyMint);
+        toppyMint = _toppyMint;
         adminExecutor = _adminExecutor;
     }
 
@@ -101,7 +103,7 @@ contract ToppyMarketPlace is Ownable{
         ) public onlyOwner {
         supportPayment = ToppySupportPayment(_supportPayment);
         masterSetting = ToppyMaster(_masterSetting);
-        toppyMint = ToppyMint(_toppyMint);
+        toppyMint = _toppyMint;
         adminExecutor = _adminExecutor;
     }
 
@@ -126,11 +128,11 @@ contract ToppyMarketPlace is Ownable{
         Offer memory highestOff = highestOffer[listing_.key];
         
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to extend listing which is not listed yet!");        
-        require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
         require(_isAuctionExpired(listing_.startedAt, listing_.duration), "cannot extend before it expires");
         require(highestOff.buyer == address(0), "cannot extend if there is bidder");
 
-        tokenIdToListing[_key].startedAt = uint(block.timestamp);      
+        tokenIdToListing[_key].startedAt = uint(block.number);      
         
         emit ListingCreated(
             listing_.key, 
@@ -148,7 +150,7 @@ contract ToppyMarketPlace is Ownable{
 
     function createBulkListing(
         ListingParams memory _listingParams,
-        uint [] calldata tokenIds) public {
+        uint [] memory tokenIds) public {
     
         // check storage requirements
         require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
@@ -159,7 +161,7 @@ contract ToppyMarketPlace is Ownable{
         if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
 
         for (uint i = 0; i < tokenIds.length; i++) {
-            require(ERC721(_listingParams.nftContract).ownerOf(tokenIds[i]) == msg.sender, "you are not owner of nft");
+            require(IERC721(_listingParams.nftContract).ownerOf(tokenIds[i]) == msg.sender, "you are not owner of nft");
             _createListing(_listingParams, tokenIds[i]);
         } 
     }
@@ -170,7 +172,7 @@ contract ToppyMarketPlace is Ownable{
         require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
         require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
         require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
-        require(ERC721(_listingParams.nftContract).ownerOf(_listingParams.tokenId) == msg.sender, "you are not owner of nft");
+        require(IERC721(_listingParams.nftContract).ownerOf(_listingParams.tokenId) == msg.sender, "you are not owner of nft");
     
         if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
         if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
@@ -190,7 +192,7 @@ contract ToppyMarketPlace is Ownable{
             uint(_listingParams.listingPrice),
             uint(_listingParams.endingPrice),
             uint(_listingParams.duration),
-            uint(block.timestamp),
+            uint(block.number),
             _listingParams.tokenPayment,
             _listingParams.priceType,
             _listingParams.nftContract
@@ -260,7 +262,7 @@ contract ToppyMarketPlace is Ownable{
 
         require(_listing.startedAt > 0);
         require(nftsForSaleIds[address(this)].contains(_listing.key), "Trying to unlist an NFT which is not listed yet!");
-        require(ERC721(_listing.nftContract).ownerOf(_listing.tokenId) == msg.sender, "you are not owner of nft");
+        require(IERC721(_listing.nftContract).ownerOf(_listing.tokenId) == msg.sender, "you are not owner of nft");
 
         delete tokenIdToListing[_listing.key];
         nftsForSaleIds[address(this)].remove(_listing.key);
@@ -287,7 +289,7 @@ contract ToppyMarketPlace is Ownable{
     function acceptOffer(bytes32 _key) public payable {
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
-        require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
         _acceptOffer(_key);
     }
 
@@ -298,10 +300,10 @@ contract ToppyMarketPlace is Ownable{
         
         Offer memory highestOff = highestOffer[listing_.key];
         
-        address ownerNFT = ERC721(listing_.nftContract).ownerOf(listing_.tokenId);
+        address ownerNFT = IERC721(listing_.nftContract).ownerOf(listing_.tokenId);
         _handlePayment(listing_, highestOff.offerPrice, ownerNFT);
 
-        ERC721(listing_.nftContract).transferFrom(ownerNFT, highestOff.buyer, listing_.tokenId);
+        IERC721(listing_.nftContract).transferFrom(ownerNFT, highestOff.buyer, listing_.tokenId);
         delete tokenIdToListing[listing_.key];
         delete highestOffer[listing_.key];
         nftsForSaleIds[address(this)].remove(listing_.key);
@@ -313,11 +315,11 @@ contract ToppyMarketPlace is Ownable{
     function offer(bytes32 _key, uint256 _amount) public payable {
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
-        require(ERC721(listing_.nftContract).ownerOf(listing_.tokenId) != msg.sender, "Owner cannot make offer to own nft");
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) != msg.sender, "Owner cannot make offer to own nft");
 
         // check if expired
         require(!_isAuctionExpired(listing_.startedAt, listing_.duration), "Expired. no more offer");
-        uint secondsPassed = block.timestamp - listing_.startedAt;
+        uint secondsPassed = (block.number - listing_.startedAt) * interBlockTime;
 
         Offer memory prevOffer = highestOffer[_key];
         require(_amount > prevOffer.offerPrice, "Offer less than highest offer");
@@ -361,7 +363,7 @@ contract ToppyMarketPlace is Ownable{
         require(listing_.startedAt > 0);
         uint256 price = getCurrentPrice(listing_);
         require(price > 0, "no price");
-        address ownerNFT = ERC721(listing_.nftContract).ownerOf(listing_.tokenId);
+        address ownerNFT = IERC721(listing_.nftContract).ownerOf(listing_.tokenId);
         require(ownerNFT != msg.sender, "do not buy own nft");
         
         if(listing_.priceType == PriceType.ETHER) require(msg.value >= price, "not enough balance");  
@@ -371,7 +373,7 @@ contract ToppyMarketPlace is Ownable{
         
         _handlePayment(listing_, price, ownerNFT);
 
-        ERC721(listing_.nftContract).transferFrom(ownerNFT, msg.sender, listing_.tokenId);
+        IERC721(listing_.nftContract).transferFrom(ownerNFT, msg.sender, listing_.tokenId);
         delete tokenIdToListing[listing_.key];
         nftsForSaleIds[address(this)].remove(listing_.key);
         nftsForSaleByAddress[listing_.seller].remove(listing_.key);
@@ -390,8 +392,8 @@ contract ToppyMarketPlace is Ownable{
     function _handlePayment(Listing memory listing_, uint _price, address ownerNFT) internal {
 
         address creatorOwnerAddress = address(0);
-        bool isElig = toppyMint.eligibleContracts(listing_.nftContract);
-        if(isElig) creatorOwnerAddress = toppyMint.creators(listing_.key);
+        bool isElig = IToppyMint(toppyMint).isElegible(listing_.nftContract);
+        if(isElig) creatorOwnerAddress = IToppyMint(toppyMint).getCreator(listing_.key);
         (uint creatorFee, uint fee, uint amountAfterFee) = masterSetting.getCalcFeeInfo(creatorOwnerAddress, _price);
 
         if (listing_.priceType == PriceType.ETHER) {
@@ -435,7 +437,7 @@ contract ToppyMarketPlace is Ownable{
         require(listing_.startedAt > 0);
         uint256 secondsPassed = 0;
 
-        secondsPassed = block.timestamp - listing_.startedAt;
+        secondsPassed = (block.number - listing_.startedAt) * interBlockTime;
 
         if (secondsPassed >= listing_.duration) {
             return listing_.endingPrice;
@@ -448,7 +450,7 @@ contract ToppyMarketPlace is Ownable{
 
             return uint256(currentPrice);
         }
-     }
+    }
 
     function isAuctionExpired(bytes32 _key) public view returns (bool) {
         Listing memory listing_ = tokenIdToListing[_key];
@@ -457,7 +459,7 @@ contract ToppyMarketPlace is Ownable{
     }
 
     function _isAuctionExpired(uint _startedAt, uint _duration) internal view returns (bool) {     
-        uint secondsPassed = block.timestamp - _startedAt;
+        uint secondsPassed = (block.number - _startedAt) * interBlockTime;
         return secondsPassed > _duration;
     }
 
@@ -465,7 +467,6 @@ contract ToppyMarketPlace is Ownable{
         return pendingWithdrawals[_user];
     }
 
-    // Not sure if should implement like this or use msg.sender instead
     function withdrawRefunds() public {
         Offer[] memory pending = pendingWithdrawals[msg.sender];
         delete pendingWithdrawals[msg.sender];

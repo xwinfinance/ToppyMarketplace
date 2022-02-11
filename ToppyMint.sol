@@ -9,16 +9,17 @@ import "./TransferHelper.sol";
 import "./ToppyStandardNFT.sol";
 import "./ToppyMysteriousNFT.sol";
 import "./IBEP20.sol";
+import "./IToppyMint.sol";
 
-contract ToppyMint is Ownable, ReentrancyGuard {
+contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
     
     // =========== Start Smart Contract Setup ==============
 
     ToppyMaster masterSetting;
     mapping(address => bool) public whitelisted;
     
-    event Minted(bytes32 key, address from, address nftContract, uint tokenId, string cid);
-    event ListingSuccessful(bytes32 key, uint listingId, address nftContract, uint tokenId, uint256 totalPrice, address owner, address buyer, address tokenPayment);
+    // event Minted(bytes32 key, address from, address nftContract, uint tokenId, string cid);
+    // event ListingSuccessful(bytes32 key, uint listingId, address nftContract, uint tokenId, uint256 totalPrice, address owner, address buyer, address tokenPayment);
     
     constructor(
         address _masterSetting
@@ -45,7 +46,7 @@ contract ToppyMint is Ownable, ReentrancyGuard {
         return keccak256(abi.encodePacked(bAddress, bTokenId));
     }
 
-    function mintNative(address _contract, string memory cid) public nonReentrant payable {
+    function mintNative(address _contract, string memory cid) external override nonReentrant payable {
         bool elig = eligibleContracts[_contract];
         require(elig, "not eligible contract");
         
@@ -60,7 +61,7 @@ contract ToppyMint is Ownable, ReentrancyGuard {
         emit Minted(key, msg.sender, _contract, tokenId, cid);
     }
 
-    function mintMysteryBox(address _contract, address _to, uint256 _mintAmount) public nonReentrant payable {
+    function mintMysteryBox(address _contract, address _to, uint256 _mintAmount) external override nonReentrant payable {
         
         bool elig = eligibleContracts[_contract];
         require(elig, "not eligible contract");
@@ -109,6 +110,14 @@ contract ToppyMint is Ownable, ReentrancyGuard {
             TransferHelper.safeTransfer(tokenPayment, platformAddress, platformFee);
             TransferHelper.safeTransfer(tokenPayment, managerAddress, managerFee);
         }
+    }
+
+    function isElegible(address _contract) external override view returns(bool) {
+        return eligibleContracts[_contract];
+    }
+
+    function getCreator(bytes32 _hash) external override view returns(address) {
+        return creators[_hash];
     }
 
 }

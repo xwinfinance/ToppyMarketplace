@@ -3,8 +3,10 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./ToppyMint.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./IToppyMint.sol";
 import "./ToppyMasterSetting.sol";
+import "./TransferHelper.sol";
 import "./BEP20.sol";
 
 contract xWinDefi  {
@@ -46,7 +48,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     }
 
     ToppyMaster toppyMaster = ToppyMaster(address(0x00b62376D5B2FA1EC07C326CAd3EC7F9AA633972));
-    ToppyMint toppyMint = ToppyMint(address(0x9C44C1b9567261DAe866624719b0Cd2d26241A42));
+    address toppyMint = address(0x9C44C1b9567261DAe866624719b0Cd2d26241A42);
     address public rewardsToken = address(0xa83575490D7df4E2F47b7D38ef351a2722cA45b9);
     address public burnAddress = address(0x000000000000000000000000000000000000dEaD);
     xWinDefi public _xwinDefi = xWinDefi(address(0xebAee150352ba99FcA309C9D57E14DC77736470e));
@@ -113,7 +115,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
 
     function updateSmartContract(address _toppyMaster, address _toppyMint, address _xwinDefiaddr) public onlyOwner {
         toppyMaster = ToppyMaster(_toppyMaster);
-        toppyMint = ToppyMint(_toppyMint);
+        toppyMint = _toppyMint;
          _xwinDefi = xWinDefi(_xwinDefiaddr);
         
     }
@@ -313,7 +315,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     // Creator get the percentage of the fee staked
     function _safexWINTransfer(address _to, uint _amount, bytes32 _hashedKey) internal {
 
-        address creatorOwnerAddress = toppyMint.creators(_hashedKey);
+        address creatorOwnerAddress = IToppyMint(toppyMint).getCreator(_hashedKey);
         uint royaltyFeeTotal = 0;
         if(creatorOwnerAddress != address(0)){
             (uint royaltyFee ,) = toppyMaster.creatorRoyalties(creatorOwnerAddress);
