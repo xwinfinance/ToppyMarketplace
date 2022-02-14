@@ -20,14 +20,16 @@ contract ToppyMaster is Ownable{
     function setMintFee(uint _mintFee) public onlyOwner {
         mintFee = _mintFee;
     }
-    function setPlatformComm(uint _platformComm) public onlyOwner {
+    function setPlatform(uint _platformComm, address _platformOwner) public onlyOwner {
         platformComm = _platformComm;
+        platformOwner = _platformOwner;
     }
     function setDurationExtension(uint _durationExtension) public onlyOwner {
         durationExtension = _durationExtension;
     }
     function updateMyRoyalty(uint _fee) public {
         
+        require(_fee <= 1000, "cannot set more than 10%");
         creatorRoyalty storage creator = creatorRoyalties[msg.sender];
         creator.owner = msg.sender;
         creator.fee = _fee;
