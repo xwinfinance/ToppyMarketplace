@@ -65,7 +65,6 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   mapping (address => bool) public eligibleMINTERS;
   
   event Received(address, uint);
-  event Reveal(bytes32 key, uint256 tokenId, address nftContract, address owner);
   
   constructor(
     string memory _name,
@@ -159,23 +158,22 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   }
 
   //only nft owner
-  function reveal(uint tokenId) public {
+  function reveal(address _owner, uint tokenId) public {
 
+      require(eligibleMINTERS[msg.sender] == true, "not allow to perform in this contract");
+      require(ownerOf(tokenId) == _owner, "not owner of nft");
       require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-      require(ownerOf(tokenId) == msg.sender, "you are not owner of nft");
       require(revealNFT[tokenId] == false, "already been revealed");
       revealNFT[tokenId] = true;
-      bytes32 key = _getId(address(this), tokenId);
-      emit Reveal(key, tokenId, address(this), msg.sender);      
   }
 
   //only nft owner
-  function revealAll(uint[] calldata tokenIds) public {
+  function revealAll(address _owner, uint[] calldata tokenIds) public {
+
+      require(eligibleMINTERS[msg.sender] == true, "not allow to perform in this contract");
       for(uint i=0; i < tokenIds.length; i++){
-        if(_exists(tokenIds[i]) && ownerOf(tokenIds[i]) == msg.sender && revealNFT[tokenIds[i]] == false){
+        if(_exists(tokenIds[i]) && ownerOf(tokenIds[i]) == _owner && revealNFT[tokenIds[i]] == false){
           revealNFT[tokenIds[i]] = true;
-          bytes32 key = _getId(address(this), tokenIds[i]);
-          emit Reveal(key, tokenIds[i], address(this), msg.sender);
         }
       }
   }

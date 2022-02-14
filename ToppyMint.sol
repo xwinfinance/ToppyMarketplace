@@ -18,9 +18,6 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
     ToppyMaster masterSetting;
     mapping(address => bool) public whitelisted;
     
-    // event Minted(bytes32 key, address from, address nftContract, uint tokenId, string cid);
-    // event ListingSuccessful(bytes32 key, uint listingId, address nftContract, uint tokenId, uint256 totalPrice, address owner, address buyer, address tokenPayment);
-    
     constructor(
         address _masterSetting
         ) {
@@ -81,6 +78,26 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
             emit ListingSuccessful(key, 0, _contract, tokenId, nft.cost(), _contract, msg.sender, nft.tokenPayment());
         }
     }
+
+    function reveal(address _contract, uint tokenId) external override nonReentrant payable {
+
+      ToppyMysteriousNFT nft = ToppyMysteriousNFT(_contract);
+      bytes32 key = _getId(_contract, tokenId);
+      nft.reveal(msg.sender, tokenId);
+      emit Reveal(key, tokenId, _contract, msg.sender);
+    }
+
+    function revealAll(address _contract, uint[] calldata tokenIds) external override nonReentrant payable {
+
+      ToppyMysteriousNFT nft = ToppyMysteriousNFT(_contract);
+      nft.revealAll(msg.sender, tokenIds);
+
+      for(uint i=0; i < tokenIds.length; i++){
+          bytes32 key = _getId(_contract, tokenIds[i]);
+          emit Reveal(key, tokenIds[i], _contract, msg.sender);
+        }
+    }
+
 
     function _payFee(uint _mintAmount, ToppyMysteriousNFT nft, address _contract) internal {
 
