@@ -65,17 +65,17 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
         
         ToppyMysteriousNFT nft = ToppyMysteriousNFT(_contract);
         require(nft.validateInput(_mintAmount), "quantity not allow");
-        
+        address creator = nft.creatorAddress();
         //make payment
-        _payFee(_mintAmount, nft, _contract);
+        _payFee(_mintAmount, nft);
 
         // then mint
         for (uint256 i = 1; i <= _mintAmount; i++) {
             uint tokenId = nft.mint(_to);
             bytes32 key = _getId(_contract, tokenId);
-            creators[key] = nft.creatorAddress();
+            creators[key] = creator;
             emit Minted(key, msg.sender, _contract, tokenId, "");
-            emit ListingSuccessful(key, 0, _contract, tokenId, nft.cost(), _contract, msg.sender, nft.tokenPayment());
+            emit ListingSuccessful(key, 0, _contract, tokenId, nft.cost(), creator, msg.sender, nft.tokenPayment());
         }
     }
 
@@ -99,7 +99,7 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
     }
 
 
-    function _payFee(uint _mintAmount, ToppyMysteriousNFT nft, address _contract) internal {
+    function _payFee(uint _mintAmount, ToppyMysteriousNFT nft) internal {
 
         uint totalAmount = nft.cost() * _mintAmount;
         address tokenPayment = nft.tokenPayment();
@@ -108,7 +108,7 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
             require(msg.value >= totalAmount, "not enough BNB balance");
         }else{
             require(IBEP20(tokenPayment).balanceOf(msg.sender) >= totalAmount, "Not enough token balance");
-            TransferHelper.safeTransferFrom(tokenPayment, msg.sender, _contract, totalAmount);
+            TransferHelper.safeTransferFrom(tokenPayment, msg.sender, address(this), totalAmount);
         }
 
         uint creatorFee = totalAmount * nft.creatorComm() / 10000;
