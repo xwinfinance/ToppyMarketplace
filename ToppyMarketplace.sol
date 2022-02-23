@@ -219,6 +219,51 @@ contract ToppyMarketPlace is Ownable{
         listingId++;
     }
 
+    function updateBulkListing(
+        ListingParams memory _listingParams,
+        bytes32 [] memory _keys
+        ) public {
+    
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        
+        for (uint i = 0; i < _keys.length; i++) {  
+            _updateListing(_keys[i], _listingParams);
+        } 
+    }
+
+    function updateListing(ListingParams memory _listingParams, bytes32 _key) public {
+        
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        _updateListing(_key, _listingParams);
+    }
+
+    function _updateListing(bytes32 _key, ListingParams memory _listingParams) internal {
+
+        require(nftsForSaleIds[address(this)].contains(_key), "Trying to update a listing which is not listed yet!");
+        Listing memory listing_ = tokenIdToListing[_key];
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        if(listing_.listingType == ListingType.English){
+            require(highestOffer[_key].buyer == address(0), "not allow to update if there is existing bidder");
+        }
+        tokenIdToListing[_key].listingPrice = _listingParams.listingPrice;
+        tokenIdToListing[_key].tokenPayment = _listingParams.tokenPayment;
+        tokenIdToListing[_key].endingPrice = _listingParams.endingPrice;
+        tokenIdToListing[_key].duration = _listingParams.duration;
+        emit ListingCreated(
+            _key, 
+            msg.sender, 
+            listing_.id, 
+            listing_.nftContract, 
+            listing_.tokenId, 
+            listing_.listingType, 
+            _listingParams.listingPrice, 
+            _listingParams.endingPrice, 
+            _listingParams.duration,
+            _listingParams.tokenPayment
+            );
+    }
+
+
     function getListings(uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {        
         require(startIndex < endIndex, "Invalid indexes supplied!");
         uint len = endIndex - startIndex;
