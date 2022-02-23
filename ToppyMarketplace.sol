@@ -245,10 +245,11 @@ contract ToppyMarketPlace is Ownable{
         if(listing_.listingType == ListingType.English){
             require(highestOffer[_key].buyer == address(0), "not allow to update if there is existing bidder");
         }
-        tokenIdToListing[_key].listingPrice = _listingParams.listingPrice;
-        tokenIdToListing[_key].tokenPayment = _listingParams.tokenPayment;
-        tokenIdToListing[_key].endingPrice = _listingParams.endingPrice;
-        tokenIdToListing[_key].duration = _listingParams.duration;
+        listing_.listingPrice = _listingParams.listingPrice;
+        listing_.tokenPayment = _listingParams.tokenPayment;
+        listing_.endingPrice = _listingParams.endingPrice;
+        listing_.duration = _listingParams.duration;
+        tokenIdToListing[_key] = listing_;
         emit ListingCreated(
             _key, 
             msg.sender, 
