@@ -117,7 +117,7 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
         // purchase the Fix listing
         bid(bidKey);
         Assert.equal(totalListed(), 0, "total NFTs listed in the marketplace should be 0 after bid");
-
+        Assert.equal(this.ownerOf(1), acc1, "NFT not transferred");
         // listing should no longer exist
         try this.getListingByNFTKey(bidKey) {
             Assert.ok(false, "get listing after successful bid should fail");
@@ -319,5 +319,32 @@ contract ToppyMarketPlaceTest is ToppyMarketPlace, ToppyStandardNFT("ToppyTestNF
 
         Assert.equal(totalListed(), 5, "total listed not 5");
         Assert.equal(totalListedByOwner(acc0), 5, "total listed by acc0 not 5");
+    }
+
+    function updatingListing() public {
+        bytes32 key = _getId(address(this), 3);
+
+        ListingParams memory listingObj;
+        listingObj.listingPrice = 80;
+        listingObj.endingPrice = 8;
+        listingObj.duration = 800;
+        listingObj.priceType = PriceType.TOKEN;
+        listingObj.tokenPayment = address(1);
+
+        Listing memory listed = getListingByNFTKey(key);
+        Assert.equal(listed.duration, 600, "duration not 600");
+        Assert.equal(listed.listingPrice, 100, "price not 100");
+        Assert.equal(listed.endingPrice, 10, "end price not 10");
+        Assert.equal(uint(listed.priceType), uint(PriceType.ETHER), "price type not ETHER");
+        Assert.equal(listed.tokenPayment, address(0), "token payment not 0");
+        updateListing(listingObj, key);
+        
+        listed = getListingByNFTKey(key);
+        Assert.equal(listed.duration, 800, "duration not 800");
+        Assert.equal(listed.listingPrice, 80, "price not 80");
+        Assert.equal(listed.endingPrice, 8, "end price not 8");
+        Assert.equal(uint(listed.priceType), uint(PriceType.TOKEN), "price type not TOKEN");
+        Assert.equal(listed.tokenPayment, address(1), "token payment not 0");
+
     }
 }

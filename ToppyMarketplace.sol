@@ -242,11 +242,15 @@ contract ToppyMarketPlace is Ownable{
         require(nftsForSaleIds[address(this)].contains(_key), "Trying to update a listing which is not listed yet!");
         Listing memory listing_ = tokenIdToListing[_key];
         require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        if (_listingParams.priceType == PriceType.TOKEN) {
+            require(_listingParams.tokenPayment != address(0), "Cannot update TOKEN payment with address 0");
+        }
         if(listing_.listingType == ListingType.English){
             require(highestOffer[_key].buyer == address(0), "not allow to update if there is existing bidder");
         }
         listing_.listingPrice = _listingParams.listingPrice;
         listing_.tokenPayment = _listingParams.tokenPayment;
+        listing_.priceType = _listingParams.priceType;
         listing_.endingPrice = _listingParams.endingPrice;
         listing_.duration = _listingParams.duration;
         tokenIdToListing[_key] = listing_;
