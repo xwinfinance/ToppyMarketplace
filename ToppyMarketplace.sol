@@ -271,31 +271,6 @@ contract ToppyMarketPlace is Ownable{
             );
     }
 
-    function updatePricebyKey(uint _newPrice, bytes32 _key) public {
-        require(_newPrice > 0 && _newPrice < 340282366920938463463374607431768211455, "invalid new price");
-        require(nftsForSaleIds[address(this)].contains(_key), "Trying to update a listing which is not listed yet!");
-        Listing memory listing_ = tokenIdToListing[_key];
-        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
-        if(listing_.listingType == ListingType.English){
-            require(highestOffer[_key].buyer == address(0), "not allow to update if there is existing bidder");
-        }
-        listing_.listingPrice = _newPrice;
-        tokenIdToListing[_key] = listing_;
-        emit ListingCreated(
-            _key, 
-            msg.sender, 
-            listing_.id, 
-            listing_.nftContract, 
-            listing_.tokenId, 
-            listing_.listingType, 
-            _listingParams.listingPrice, 
-            _listingParams.endingPrice, 
-            _listingParams.duration,
-            _listingParams.tokenPayment
-            );
-    }
-
-
     function getListings(uint startIndex, uint endIndex) public view returns (Listing[] memory _listings) {        
         require(startIndex < endIndex, "Invalid indexes supplied!");
         uint len = endIndex - startIndex;
@@ -333,34 +308,29 @@ contract ToppyMarketPlace is Ownable{
         return listing_;
     }
 
-    function acceptListingByAdmin(bytes32 _key) public onlyAdminExecutor {
+    function cancelListingByAdmin(bytes32 _key) public onlyAdminExecutor {
         Listing memory listing_ = tokenIdToListing[_key];
-
         require(listing_.startedAt > 0);
-        require(nftsForSaleIds[address(this)].contains(_listing.key), "Trying to unlist an NFT which is not listed yet!");
-
-        delete tokenIdToListing[_listing.key];
-        nftsForSaleIds[address(this)].remove(_listing.key);
-        nftsForSaleByAddress[msg.sender].remove(_listing.key);
-        nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
-        _cancelEnglishOffer(_listing);
-        emit ListingCancelled(_listing.key, msg.sender, _listing.id, _listing.nftContract, _listing.tokenId, _listing.tokenPayment);
+        require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
+        _cancelListing(listing_);
     }
 
     function cancelListingByKey(bytes32 _key) public {
       
-        Listing memory _listing = tokenIdToListing[_key];
+        Listing memory listing_ = tokenIdToListing[_key];
+        require(listing_.startedAt > 0);
+        require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        _cancelListing(listing_);
+    }
 
-        require(_listing.startedAt > 0);
-        require(nftsForSaleIds[address(this)].contains(_listing.key), "Trying to unlist an NFT which is not listed yet!");
-        require(IERC721(_listing.nftContract).ownerOf(_listing.tokenId) == msg.sender, "you are not owner of nft");
-
-        delete tokenIdToListing[_listing.key];
-        nftsForSaleIds[address(this)].remove(_listing.key);
-        nftsForSaleByAddress[msg.sender].remove(_listing.key);
-        nftsForSaleByAddress[_listing.nftContract].remove(_listing.key);
-        _cancelEnglishOffer(_listing);
-        emit ListingCancelled(_listing.key, msg.sender, _listing.id, _listing.nftContract, _listing.tokenId, _listing.tokenPayment);
+    function _cancelListing(Listing memory listing_) internal {
+        delete tokenIdToListing[listing_.key];
+        nftsForSaleIds[address(this)].remove(listing_.key);
+        nftsForSaleByAddress[listing_.seller].remove(listing_.key);
+        nftsForSaleByAddress[listing_.nftContract].remove(listing_.key);
+        _cancelEnglishOffer(listing_);
+        emit ListingCancelled(listing_.key, listing_.seller, listing_.id, listing_.nftContract, listing_.tokenId, listing_.tokenPayment);
     }
 
     function _cancelEnglishOffer(Listing memory _listing) internal {
