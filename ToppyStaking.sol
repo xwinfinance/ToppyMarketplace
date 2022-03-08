@@ -63,6 +63,21 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     uint public DEFAULT_SCORE = 1e18;
     uint public xwinpid;
 
+    // multipler and divisor toward point allocation of toppy100 and toppy500 pools
+    // Example: multiplier = 1, divisor = 1, toppy pools get 50% of emmision (1/2)
+    // Example: multiplier = 1, divisor = 2, toppy pools get 33.3% of emmision (1/3)
+    // Example: multiplier = 1, divisor = x, toppy pools get 1/(x+1) if emmision
+    // Example: multiplier = 2, divisor = 1, toppy pools get 66% of emmision (2/3)
+    // Example: multiplier = 4, divisor = 1, toppy pools get 80% of emmision (4/5)
+    // Example: multiplier = x, divisor = 1, toppy pools get x/(x+1) of emmision
+    uint private toppyMultiplier = 1;
+    uint private toppyDivisor = 1;
+
+    // porportion of emmision shared between toppy500 and toppy100 
+    // Example: toppy100proportion = 5, toppy100 = 1/5  toppy500 = 4/5
+    // Example: toppy100proportion = 2, toppy100 = 1/3  toppy500 = 2/3
+    uint private toppy100proportion = 5;
+
     /// @notice mapping of a nft token to its current properties
     mapping (uint => mapping (bytes32 => UserInfo)) public userInfo;
     
@@ -130,7 +145,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         poolInfo[_pid].endPeriod = _newDuration.mul(28750).add(block.number);
         if (prevAllocPoint != _allocPoint) {
             totalAllocPoint = totalAllocPoint.sub(prevAllocPoint).add(_allocPoint);
-            //updateStakingPool();
+            updateStakingPool();
         }
     }
 
@@ -168,7 +183,7 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
             totalStakedBalance : 0,
             endPeriod: _duration.mul(28750).add(block.number)
         }));
-        // updateStakingPool();
+        updateStakingPool();
     }
 
     // View function to see pending CAKEs on frontend.
@@ -194,13 +209,19 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     function updateStakingPool() internal {
         uint length = poolInfo.length;
         uint points = 0;
-        for (uint pid = 1; pid < length; ++pid) {
+
+        for (uint pid = 2; pid < length; ++pid) {
             points = points.add(poolInfo[pid].allocPoint);
         }
+        
         if (points != 0) {
-            points = points.div(3);
-            totalAllocPoint = totalAllocPoint.sub(poolInfo[0].allocPoint).add(points);
-            poolInfo[0].allocPoint = points;
+            points = points.mul(toppyMultiplier).div(toppyDivisor);
+            uint points1 = points.div(toppy100proportion);
+            uint points0 = points - points1;
+            totalAllocPoint = totalAllocPoint.sub(poolInfo[0].allocPoint).add(points0);
+            totalAllocPoint = totalAllocPoint.sub(poolInfo[1].allocPoint).add(points1);
+            poolInfo[0].allocPoint = points0;
+            poolInfo[1].allocPoint = points1;
         }
     }
 
