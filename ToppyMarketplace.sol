@@ -122,22 +122,8 @@ contract ToppyMarketPlace is Ownable{
         return keccak256(abi.encodePacked(bAddress, bTokenId));
     }
 
-    function extendBulkListing(
-        bytes32 [] memory _keys
-        ) public {
-    
-        for (uint i = 0; i < _keys.length; i++) {  
-            _extendListing(_keys[i]);
-        } 
-    }
-
     // allow owner to extend the auction without cancelling it and relist it again
-    function extendListing(bytes32 _key) public {            
-        _extendListing(_key);
-    }
-
-    function _extendListing(bytes32 _key) internal {        
-        
+    function extendListing(bytes32 _key) public {        
         Listing memory listing_ = tokenIdToListing[_key];
         Offer memory highestOff = highestOffer[listing_.key];
         
@@ -334,7 +320,7 @@ contract ToppyMarketPlace is Ownable{
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
-        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        require(listing_.seller == msg.sender, "you are not the seller of this listing");
         _cancelListing(listing_);
     }
 
@@ -440,6 +426,9 @@ contract ToppyMarketPlace is Ownable{
         require(price > 0, "no price");
         address ownerNFT = IERC721(listing_.nftContract).ownerOf(listing_.tokenId);
         require(ownerNFT != msg.sender, "do not buy own nft");
+        if (listing_.listingType == ListingType.Dutch) {
+            require(!_isAuctionExpired(listing_.startedAt, listing_.duration), "Cannot purchase expired auction");
+        }
         
         if(listing_.priceType == PriceType.ETHER) require(msg.value >= price, "not enough balance");  
         else TransferHelper.safeTransferFrom(listing_.tokenPayment, msg.sender, address(this), price);
