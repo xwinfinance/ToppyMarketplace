@@ -123,7 +123,19 @@ contract ToppyMarketPlace is Ownable{
     }
 
     // allow owner to extend the auction without cancelling it and relist it again
-    function extendListing(bytes32 _key) public {        
+    function extendBulkListing( bytes32 [] memory _keys) public {
+        for (uint i = 0; i < _keys.length; i++) {  
+            _extendListing(_keys[i]);
+        }
+    }
+
+    // allow owner to extend the auction without cancelling it and relist it again
+    function extendListing(bytes32 _key) public {            
+        _extendListing(_key);
+    }
+
+    function _extendListing(bytes32 _key) internal {
+            
         Listing memory listing_ = tokenIdToListing[_key];
         Offer memory highestOff = highestOffer[listing_.key];
         
