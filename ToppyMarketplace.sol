@@ -332,7 +332,7 @@ contract ToppyMarketPlace is Ownable{
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
-        require(listing_.seller == msg.sender, "you are not the seller of this listing");
+        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not the seller of this listing");
         _cancelListing(listing_);
     }
 
