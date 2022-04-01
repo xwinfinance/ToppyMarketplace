@@ -21,10 +21,12 @@ contract ToppyMaster is Ownable{
         mintFee = _mintFee;
     }
     function setPlatform(uint _platformComm, address _platformOwner) public onlyOwner {
+        require(_platformComm <= 1000, "max platform comm 10%");
         platformComm = _platformComm;
         platformOwner = _platformOwner;
     }
     function setDurationExtension(uint _durationExtension) public onlyOwner {
+        require(_durationExtension <= 86400, "max duration extension 24hours");
         durationExtension = _durationExtension;
     }
     function updateMyRoyalty(uint _fee) public {

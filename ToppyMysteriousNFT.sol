@@ -25,7 +25,7 @@ library ToppyUtils {
               0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F) * 39);
     }
 
-  function toHex (bytes32 data) public pure returns (string memory) {
+  function toHex (bytes32 data) internal pure returns (string memory) {
       return string (abi.encodePacked ("0x", toHex16 (bytes16 (data)), toHex16 (bytes16 (data << 128))));
   }
 }
@@ -179,6 +179,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   }
 
   function setFeeProperties(uint256 _newCost, uint256 _managerComm, uint256 _platformComm, uint256 _creatorComm) public onlyOwner {
+    require( (_managerComm + _platformComm + _creatorComm) == 10000, "Total commission must be 100%");
     cost = _newCost;
     managerComm = _managerComm;
     platformComm = _platformComm;
@@ -191,6 +192,7 @@ contract ToppyMysteriousNFT is ERC721Enumerable, Ownable {
   }
 
   function setMaxSupply(uint _maxSupply) public onlyOwner {
+    require (_maxSupply >= totalSupply(), "new max supply must be greater than current supply");
     maxSupply = _maxSupply;
   }
 

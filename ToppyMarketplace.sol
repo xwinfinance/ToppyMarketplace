@@ -165,9 +165,9 @@ contract ToppyMarketPlace is Ownable{
         uint [] memory tokenIds) public {
     
         // check storage requirements
-        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
-        require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
-        require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < type(uint128).max, "invalid listing price"); // 128 bits
+        require(_listingParams.endingPrice < type(uint128).max, "invalid endingPrice"); // 128 bits
+        require(_listingParams.duration <= type(uint64).max, "invalid duration"); // 64 bits
         require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
         if(_listingParams.listingType != ListingType.Fix) require(_listingParams.duration >= 1 minutes);
         if(_listingParams.listingType == ListingType.Dutch) require(_listingParams.endingPrice < _listingParams.listingPrice, "ending price should less than starting price");
@@ -180,9 +180,9 @@ contract ToppyMarketPlace is Ownable{
 
     function createListing(ListingParams memory _listingParams) public {
         
-        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
-        require(_listingParams.endingPrice < 340282366920938463463374607431768211455, "invalid endingPrice"); // 128 bits
-        require(_listingParams.duration <= 18446744073709551615, "invalid duration"); // 64 bits
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < type(uint128).max, "invalid listing price"); // 128 bits
+        require(_listingParams.endingPrice < type(uint128).max, "invalid endingPrice"); // 128 bits
+        require(_listingParams.duration <= type(uint64).max, "invalid duration"); // 64 bits
         require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
         require(IERC721(_listingParams.nftContract).ownerOf(_listingParams.tokenId) == msg.sender, "you are not owner of nft");
         if (_listingParams.priceType == PriceType.TOKEN) {
@@ -198,6 +198,9 @@ contract ToppyMarketPlace is Ownable{
     function _createListing(ListingParams memory _listingParams, uint _tokenId) internal {
 
         bytes32 key = _getId(_listingParams.nftContract, _tokenId);
+        Listing memory listingCheck = tokenIdToListing[key];
+        require(listingCheck.startedAt == 0, "This NFT already has a listing, cannot overwrite existing listing");
+
         Listing memory listing = Listing(
             key,
             _listingParams.listingType,
@@ -239,7 +242,7 @@ contract ToppyMarketPlace is Ownable{
         bytes32 [] memory _keys
         ) public {
     
-        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < type(uint128).max , "invalid listing price"); // 128 bits
         
         for (uint i = 0; i < _keys.length; i++) {  
             _updateListing(_keys[i], _listingParams);
@@ -248,7 +251,7 @@ contract ToppyMarketPlace is Ownable{
 
     function updateListing(ListingParams memory _listingParams, bytes32 _key) public {
         
-        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < 340282366920938463463374607431768211455, "invalid listing price"); // 128 bits
+        require(_listingParams.listingPrice > 0 && _listingParams.listingPrice < type(uint128).max, "invalid listing price"); // 128 bits
         _updateListing(_key, _listingParams);
     }
 
@@ -257,6 +260,7 @@ contract ToppyMarketPlace is Ownable{
         require(nftsForSaleIds[address(this)].contains(_key), "Trying to update a listing which is not listed yet!");
         Listing memory listing_ = tokenIdToListing[_key];
         require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        require(supportPayment.isEligibleToken(_listingParams.tokenPayment), "currency not support");
         if (_listingParams.priceType == PriceType.TOKEN) {
             require(_listingParams.tokenPayment != address(0), "Cannot update TOKEN payment with address 0");
         }
@@ -333,6 +337,7 @@ contract ToppyMarketPlace is Ownable{
         require(listing_.startedAt > 0);
         require(nftsForSaleIds[address(this)].contains(listing_.key), "Trying to unlist an NFT which is not listed yet!");
         require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not the seller of this listing");
+        if (listing_.listingType == ListingType.English) require(highestOffer[listing_.key].offerPrice == 0, "cannot cancel english auction with offers");
         _cancelListing(listing_);
     }
 
@@ -362,7 +367,8 @@ contract ToppyMarketPlace is Ownable{
     function acceptOffer(bytes32 _key) public payable {
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
-        require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender, "you are not owner of nft");
+        Offer memory highestOffer_ = highestOffer[_key];
+        require((IERC721(listing_.nftContract).ownerOf(listing_.tokenId) == msg.sender) || (highestOffer_.buyer == msg.sender), "you are not the seller or winning bidder");
         _acceptOffer(_key);
     }
 
@@ -370,9 +376,10 @@ contract ToppyMarketPlace is Ownable{
       
         Listing memory listing_ = tokenIdToListing[_key];
         require(_isAuctionExpired(listing_.startedAt, listing_.duration), "wait until it expires");
-        
+        require(listing_.listingType == ListingType.English, "accept offer only for English type listing");
+
         Offer memory highestOff = highestOffer[listing_.key];
-        
+        require(highestOff.offerPrice >= listing_.listingPrice, "no valid offer to accept");
         address ownerNFT = IERC721(listing_.nftContract).ownerOf(listing_.tokenId);
         _handlePayment(listing_, highestOff.offerPrice, ownerNFT);
 
@@ -389,7 +396,7 @@ contract ToppyMarketPlace is Ownable{
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
         require(IERC721(listing_.nftContract).ownerOf(listing_.tokenId) != msg.sender, "Owner cannot make offer to own nft");
-
+        require(listing_.listingType == ListingType.English, "Offer function can only be used on English auctions");
         // check if expired
         require(!_isAuctionExpired(listing_.startedAt, listing_.duration), "Expired. no more offer");
         uint secondsPassed = (block.number - listing_.startedAt) * interBlockTime;
@@ -434,6 +441,7 @@ contract ToppyMarketPlace is Ownable{
 
         Listing memory listing_ = tokenIdToListing[_key];
         require(listing_.startedAt > 0);
+        require(listing_.listingType != ListingType.English, "Only Fix and Dutch auction can directly buy NFTs");
         uint256 price = getCurrentPrice(listing_);
         require(price > 0, "no price");
         address ownerNFT = IERC721(listing_.nftContract).ownerOf(listing_.tokenId);

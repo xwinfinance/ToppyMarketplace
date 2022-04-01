@@ -70,13 +70,14 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
     // Example: multiplier = 2, divisor = 1, toppy pools get 66% of emmision (2/3)
     // Example: multiplier = 4, divisor = 1, toppy pools get 80% of emmision (4/5)
     // Example: multiplier = x, divisor = 1, toppy pools get x/(x+1) of emmision
-    uint private toppyMultiplier = 1;
-    uint private toppyDivisor = 1;
+    uint public toppyMultiplier = 1;
+    uint public toppyDivisor = 1;
 
     // porportion of emmision shared between toppy500 and toppy100 
     // Example: toppy100proportion = 5, toppy100 = 1/5  toppy500 = 4/5
     // Example: toppy100proportion = 2, toppy100 = 1/3  toppy500 = 2/3
-    uint private toppy100proportion = 5;
+    uint public toppy100proportion = 5;
+    
 
     /// @notice mapping of a nft token to its current properties
     mapping (uint => mapping (bytes32 => UserInfo)) public userInfo;
@@ -286,12 +287,6 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         require(amount > 0, "no score for staking");
 
         updatePool(_pid);
-        if (user.amount > 0) {
-            uint pending = user.amount.mul(pool.accCakePerShare).div(1e18).sub(user.rewardDebt);
-            if(pending > 0) {
-                _safexWINTransfer(msg.sender, pending, hashedKey);
-            }
-        }
         // update amount first before rewardDebt
         user.amount = user.amount.add(amount);
         user.rewardDebt = user.amount.mul(pool.accCakePerShare).div(1e18);
@@ -352,6 +347,20 @@ contract ToppyStaking is Ownable, ReentrancyGuard, BEP20 {
         bytes32 bAddress = bytes32(uint256(uint160(_contract)));
         bytes32 bTokenId = bytes32(_tokenId);
         return keccak256(abi.encodePacked(bAddress, bTokenId));
+    }
+
+    function setToppyMultiplier(uint _toppyMultiplier) public onlyOwner {
+        toppyMultiplier = _toppyMultiplier;
+    }
+
+    function setToppyDivisor(uint _toppyDivisor) public onlyOwner {
+        require(_toppyDivisor > 0, "Divisor cannot be 0");
+        toppyDivisor = _toppyDivisor;
+    }
+
+    function setToppy100proportion(uint _toppy100proportion) public onlyOwner {
+        require(_toppy100proportion > 0, "Divisor cannot be 0");
+        toppy100proportion = _toppy100proportion;
     }
 
     function onERC721Received(

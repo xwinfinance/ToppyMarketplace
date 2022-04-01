@@ -59,7 +59,6 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
     }
 
     function mintMysteryBox(address _contract, address _to, uint256 _mintAmount) external override nonReentrant payable {
-        
         bool elig = eligibleContracts[_contract];
         require(elig, "not eligible contract");
         
@@ -111,9 +110,10 @@ contract ToppyMint is Ownable, ReentrancyGuard, IToppyMint {
             TransferHelper.safeTransferFrom(tokenPayment, msg.sender, address(this), totalAmount);
         }
 
-        uint creatorFee = totalAmount * nft.creatorComm() / 10000;
         uint platformFee = totalAmount * nft.platformComm() / 10000;
         uint managerFee = totalAmount * nft.managerComm() / 10000;
+        uint creatorFee = totalAmount - platformFee - managerFee;
+
         address creatorAddress = nft.creatorAddress();
         address platformAddress = nft.platformAddress();
         address managerAddress = nft.managerAddress();
